@@ -1,0 +1,18 @@
+{
+  "name": "ajax-interceptor-pro",
+  "version": "1.0.0",
+  "description": "基于 [ajax-interceptor](https://github.com/YGYOOO/ajax-interceptor) 增强的 Chrome 插件，新增**接口分组管理**和**导入导出**功能。",
+  "main": "devtools-panel.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "vanilla-jsoneditor": "^3.11.0"
+  }
+}

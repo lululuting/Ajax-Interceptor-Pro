@@ -1,34 +1,53 @@
 // Background service worker
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+
+async function applyModeToAction(mode) {
+  var effectiveMode = mode === 'devtools' ? 'devtools' : 'popup';
+  var popupPath = effectiveMode === 'devtools' ? 'popup/mode-hint.html' : 'popup/popup.html';
+  await chrome.action.setPopup({ popup: popupPath });
+}
+
+async function syncActionPopupFromSettings() {
+  try {
+    var data = await chrome.storage.local.get(['settings']);
+    var settings = data.settings || {};
+    await applyModeToAction(settings.openMode);
+  } catch (error) {
+    console.error('同步 action popup 失败:', error);
+  }
+}
+
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.type === 'GET_RESPONSE') {
     handleInterceptRequest(request.url, request.method)
-      .then(response => sendResponse(response))
-      .catch(() => sendResponse(null));
+      .then(function(response) { sendResponse(response); })
+      .catch(function() { sendResponse(null); });
     return true;
   }
 });
 
 async function handleInterceptRequest(url, method) {
-  const data = await chrome.storage.local.get(['groups', 'globalEnabled', 'hitCounts']);
-  
+  var data = await chrome.storage.local.get(['groups', 'globalEnabled', 'hitCounts']);
+
   if (data.globalEnabled === false) return null;
 
-  const groups = data.groups || [];
-  let hitCounts = data.hitCounts || {};
-  
-  for (const group of groups) {
+  var groups = data.groups || [];
+  var hitCounts = data.hitCounts || {};
+
+  for (var i = 0; i < groups.length; i++) {
+    var group = groups[i];
     if (!group.enabled) continue;
-    
-    for (const rule of group.rules || []) {
+
+    var rules = group.rules || [];
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
       if (!rule.enabled) continue;
-      
+
       if (rule.method && rule.method !== '*' && rule.method !== method) continue;
-      
+
       if (matchUrl(url, rule.urlPattern)) {
-        // 记录命中
         hitCounts[rule.id] = (hitCounts[rule.id] || 0) + 1;
-        await chrome.storage.local.set({ hitCounts });
-        
+        await chrome.storage.local.set({ hitCounts: hitCounts });
+
         return { data: rule.response, status: rule.status || 200 };
       }
     }
@@ -38,21 +57,49 @@ async function handleInterceptRequest(url, method) {
 
 function matchUrl(url, pattern) {
   if (!pattern) return false;
-  const regexPattern = pattern.replace(/\*/g, '.*').replace(/\?/g, '.');
+  var regexPattern = pattern.replace(/\*/g, '.*').replace(/\?/g, '.');
   try {
     return new RegExp(regexPattern, 'i').test(url);
-  } catch { return url.includes(pattern); }
+  } catch (e) {
+    return url.indexOf(pattern) !== -1;
+  }
 }
 
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.get(['groups'], result => {
+chrome.runtime.onInstalled.addListener(function() {
+  chrome.storage.local.get(['groups', 'settings'], function(result) {
+    var payload = {};
+
     if (!result.groups) {
-      chrome.storage.local.set({
-        groups: [{ id: 'default', name: '未分组', enabled: true, order: 999, rules: [] }],
-        globalEnabled: true,
-        hitCounts: {},
-        version: '2.0.0'
+      payload.groups = [{ id: 'default', name: '未分组', enabled: true, order: 999, rules: [] }];
+      payload.globalEnabled = true;
+      payload.hitCounts = {};
+      payload.version = '2.1.0';
+    }
+
+    if (!result.settings) {
+      payload.settings = { showHitCount: true, enableAnimations: true, openMode: 'popup' };
+    } else if (!result.settings.openMode) {
+      payload.settings = Object.assign({}, result.settings, { openMode: 'popup' });
+    }
+
+    if (Object.keys(payload).length) {
+      chrome.storage.local.set(payload, function() {
+        syncActionPopupFromSettings();
       });
+    } else {
+      syncActionPopupFromSettings();
     }
   });
 });
+
+chrome.runtime.onStartup.addListener(function() {
+  syncActionPopupFromSettings();
+});
+
+chrome.storage.onChanged.addListener(function(changes, areaName) {
+  if (areaName !== 'local' || !changes.settings) return;
+  var next = changes.settings.newValue || {};
+  applyModeToAction(next.openMode);
+});
+
+syncActionPopupFromSettings();

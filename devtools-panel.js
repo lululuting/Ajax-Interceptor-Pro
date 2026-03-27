@@ -13,20 +13,24 @@
 
   // 初始化
   document.addEventListener('DOMContentLoaded', function() {
-    console.log('Ajax Interceptor Pro v2.1.0 初始化...');
+    console.log('DevTools Panel 初始化...');
     init();
   });
 
   async function init() {
     await loadData();
-    renderSidebar();
-    renderRules();
-    bindEvents();
-    console.log('初始化完成');
 
-    // 监听 storage 变化，实现数据同步
     chrome.storage.onChanged.addListener(function(changes, namespace) {
-      if (namespace === 'local' && (changes.groups || changes.globalEnabled)) {
+      if (namespace !== 'local') return;
+
+      if (changes.settings) {
+        location.reload();
+        return;
+      }
+
+      if (!isDevtoolsFullUi()) return;
+
+      if (changes.groups || changes.globalEnabled) {
         console.log('检测到数据变化，重新加载...');
         loadData().then(function() {
           renderSidebar();
@@ -34,16 +38,35 @@
         });
       }
 
-      if (namespace === 'local' && changes.ruleEditorDraft && document.getElementById('ruleModal') && document.getElementById('ruleModal').style.display === 'flex') {
+      if (changes.ruleEditorDraft && document.getElementById('ruleModal') && document.getElementById('ruleModal').style.display === 'flex') {
         var draft = changes.ruleEditorDraft.newValue;
-        if (draft && draft.source !== 'popup' && draft.key === getCurrentDraftKey()) {
+        if (draft && draft.source !== 'devtools' && draft.key === getCurrentDraftKey()) {
           setJsonValue(draft.value || '', true);
         }
       }
     });
 
-    // 每3秒刷新命中计数
+    if (!isDevtoolsFullUi()) {
+      renderDevtoolsModeHint();
+      return;
+    }
+
+    renderSidebar();
+    renderRules();
+    bindEvents();
+    console.log('初始化完成');
+
     setInterval(refreshHitCounts, 3000);
+  }
+
+  function isDevtoolsFullUi() {
+    return (settings.openMode || 'popup') === 'devtools';
+  }
+
+  function renderDevtoolsModeHint() {
+    var app = document.querySelector('.app');
+    if (!app) return;
+    app.innerHTML = '<main class="mode-placeholder"><div class="mode-placeholder-card"><h2>当前为弹窗模式</h2><p>请点击扩展图标使用</p></div></main>';
   }
 
   async function loadData() {
@@ -715,7 +738,7 @@
         ruleEditorDraft: {
           key: getCurrentDraftKey(),
           value: value || '',
-          source: 'popup',
+          source: 'devtools',
           updatedAt: Date.now()
         }
       });

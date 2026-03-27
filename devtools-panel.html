@@ -4,17 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ajax Interceptor Pro</title>
-  <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="popup/popup.css">
   <style>
     /* 禁止横向滚动条 */
-    html, body { overflow-x: hidden; max-width: 100vw; }
-    .app { overflow-x: hidden; }
+    html, body { overflow-x: hidden; max-width: 100vw; width: 100%; height: 100%; }
+    body { width: 100% !important; height: 100vh !important; }
+    .app { overflow-x: hidden; min-height: 100vh; }
     .modal-content { max-width: 100%; box-sizing: border-box; }
   </style>
-  <script id="_monaco_loader" src="../libs/vs/loader.js" data-vs="../libs/vs"></script>
-  <script src="../libs/monaco-editor.js"></script>
-  <script src="../libs/mode-config.js"></script>
-  <script src="../libs/shared-ui.js"></script>
+  <script id="_monaco_loader" src="libs/vs/loader.js" data-vs="libs/vs"></script>
+  <script src="libs/monaco-editor.js"></script>
+  <script src="libs/mode-config.js"></script>
+  <script src="libs/shared-ui.js"></script>
 </head>
 <body>
   <div class="app">
@@ -282,6 +283,6 @@
   </div>
 
   <div class="toast" id="toast" style="display:none;"><span id="toastMessage"></span></div>
-  <script src="popup.js"></script>
+  <script src="devtools-panel.js"></script>
 </body>
 </html>
