@@ -79,6 +79,16 @@
     return '<span class="hit-badge" title="未命中">' + vm.hitIcon + '</span>';
   }
 
+  function renderActionIcon(kind, fallback) {
+    if (kind === 'edit') {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>';
+    }
+    if (kind === 'delete') {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
+    }
+    return fallback || '';
+  }
+
   function renderRuleItemHtml(vm) {
     return '' +
       '<div class="rule-item' + (vm.disabled ? ' disabled' : '') + (vm.hitActive ? ' has-hit' : '') + '" data-rid="' + escapeHtml(vm.id) + '"' + (vm.draggable ? ' draggable="true"' : '') + '>' +
@@ -102,8 +112,8 @@
               '<span class="toggle-slider"></span>' +
             '</label>' +
             '<div class="rule-actions' + (vm.allowHoverActions ? '' : ' always-visible') + '">' +
-              '<button class="btn-icon edit-btn" data-rid="' + escapeHtml(vm.id) + '" title="编辑">' + vm.editIcon + '</button>' +
-              '<button class="btn-icon delete-btn" data-rid="' + escapeHtml(vm.id) + '" title="删除">' + vm.deleteIcon + '</button>' +
+              '<button class="btn-icon action-btn action-btn-edit edit-btn" data-rid="' + escapeHtml(vm.id) + '" title="编辑">' + renderActionIcon('edit', vm.editIcon) + '</button>' +
+              '<button class="btn-icon action-btn action-btn-delete delete-btn" data-rid="' + escapeHtml(vm.id) + '" title="删除">' + renderActionIcon('delete', vm.deleteIcon) + '</button>' +
             '</div>' +
           '</div>' +
         '</div>' +

@@ -223,6 +223,31 @@ input:checked + .toggle-slider:before {
   border-radius: 10px;
 }
 
+.group-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.group-action-btn {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  color: var(--text3);
+  opacity: 0;
+}
+
+.group-item:hover .group-action-btn,
+.group-item.active .group-action-btn {
+  opacity: 1;
+}
+
+.group-action-btn:hover {
+  background: #e8f7f1;
+  color: var(--primary-dark);
+}
+
 .sidebar-footer {
   padding: 12px;
   border-top: 1px solid var(--border);
@@ -497,9 +522,39 @@ input:checked + .toggle-slider:before {
   color: var(--text2);
 }
 
+.btn-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .btn-icon:hover {
   background: rgba(255,255,255,0.2);
   color: white;
+}
+
+.action-btn {
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.action-btn:hover {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
+.action-btn-delete:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
 }
 
 /* Empty State */

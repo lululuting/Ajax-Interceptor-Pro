@@ -154,20 +154,37 @@
     html += '<span class="group-count">' + count + '</span>';
 
     if (showToggle) {
+      html += '<div class="group-actions">';
+      html += '<button class="btn-icon group-action-btn rename-group-btn" data-gid="' + id + '" title="重命名分组">✏️</button>';
       html += '<label class="group-toggle" data-gid="' + id + '">';
       html += '<input type="checkbox"' + (enabled ? ' checked' : '') + '>';
       html += '<span class="toggle-slider"></span></label>';
+      html += '</div>';
     }
 
     div.innerHTML = html;
 
     // 点击切换分组
     div.addEventListener('click', function(e) {
-      if (e.target.closest('.group-toggle')) return;
+      if (e.target.closest('.group-toggle') || e.target.closest('.rename-group-btn')) return;
       currentGroupId = id;
       renderSidebar();
       renderRules();
     });
+
+    var renameBtn = div.querySelector('.rename-group-btn');
+    if (renameBtn) {
+      renameBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var g = groups.find(function(x) { return x.id === id; });
+        if (g) {
+          editingGroupId = id;
+          document.getElementById('groupModalTitle').textContent = '重命名分组';
+          document.getElementById('groupNameInput').value = g.name;
+          openModal('groupModal');
+        }
+      });
+    }
 
     // 分组开关
     var toggle = div.querySelector('.group-toggle input');

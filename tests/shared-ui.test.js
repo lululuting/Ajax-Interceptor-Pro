@@ -29,6 +29,8 @@ test('renderRuleItemHtml includes hover actions container and plain text name st
 
   const html = renderRuleItemHtml(vm);
   assert.match(html, /rule-actions/);
+  assert.match(html, /action-btn-edit/);
+  assert.match(html, /action-btn-delete/);
   assert.match(html, /rule-side-title/);
   assert.doesNotMatch(html, /badge-name/);
 });
