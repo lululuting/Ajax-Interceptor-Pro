@@ -84,9 +84,9 @@
       '<div class="rule-item' + (vm.disabled ? ' disabled' : '') + (vm.hitActive ? ' has-hit' : '') + '" data-rid="' + escapeHtml(vm.id) + '"' + (vm.draggable ? ' draggable="true"' : '') + '>' +
         '<span class="drag-handle" title="拖动排序">' + vm.dragIcon + '</span>' +
         '<div class="rule-main">' +
-          '<div class="rule-route-row">' +
+          '<div class="rule-name-row">' +
             '<span class="rule-method ' + escapeHtml(vm.methodClass) + '">' + escapeHtml(vm.method) + '</span>' +
-            '<span class="rule-url" title="' + escapeHtml(vm.urlPattern) + '">' + escapeHtml(vm.urlPattern) + '</span>' +
+            '<span class="rule-name rule-name-main" title="' + escapeHtml(vm.name) + '">' + escapeHtml(vm.name) + '</span>' +
           '</div>' +
           '<div class="rule-meta">' +
             (vm.showGroupName && vm.groupName ? '<span class="rule-group-label">' + escapeHtml(vm.groupName) + '</span>' : '') +
@@ -94,18 +94,18 @@
           '</div>' +
         '</div>' +
         '<div class="rule-side">' +
-          '<div class="rule-side-title"><span class="rule-name" title="' + escapeHtml(vm.name) + '">' + escapeHtml(vm.name) + '</span></div>' +
+          '<div class="rule-side-title"><span class="rule-url rule-route-side" title="' + escapeHtml(vm.urlPattern) + '">' + escapeHtml(vm.urlPattern) + '</span></div>' +
           '<div class="rule-side-controls">' +
             renderHitBadge(vm) +
             '<label class="rule-toggle" data-rid="' + escapeHtml(vm.id) + '">' +
               '<input type="checkbox"' + (vm.enabled ? ' checked' : '') + '>' +
               '<span class="toggle-slider"></span>' +
             '</label>' +
+            '<div class="rule-actions' + (vm.allowHoverActions ? '' : ' always-visible') + '">' +
+              '<button class="btn-icon edit-btn" data-rid="' + escapeHtml(vm.id) + '" title="编辑">' + vm.editIcon + '</button>' +
+              '<button class="btn-icon delete-btn" data-rid="' + escapeHtml(vm.id) + '" title="删除">' + vm.deleteIcon + '</button>' +
+            '</div>' +
           '</div>' +
-        '</div>' +
-        '<div class="rule-actions' + (vm.allowHoverActions ? '' : ' always-visible') + '">' +
-          '<button class="btn-icon edit-btn" data-rid="' + escapeHtml(vm.id) + '" title="编辑">' + vm.editIcon + '</button>' +
-          '<button class="btn-icon delete-btn" data-rid="' + escapeHtml(vm.id) + '" title="删除">' + vm.deleteIcon + '</button>' +
         '</div>' +
       '</div>';
   }

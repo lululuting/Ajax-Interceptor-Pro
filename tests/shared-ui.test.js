@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildRuleItemViewModel, renderRuleItemHtml } = require('../libs/shared-ui.js');
 
-test('renderRuleItemHtml renders name above hit/toggle row and includes route', () => {
+test('renderRuleItemHtml renders name on the left and route on the right', () => {
   const vm = buildRuleItemViewModel({
     rule: { id: 'r1', name: '用户详情', method: 'GET', urlPattern: '/api/user/detail', response: '{"ok":true}', enabled: true },
     group: { id: 'g1', name: '默认组', enabled: true },
@@ -12,9 +12,9 @@ test('renderRuleItemHtml renders name above hit/toggle row and includes route', 
   });
 
   const html = renderRuleItemHtml(vm);
-  assert.match(html, /rule-name/);
+  assert.match(html, /rule-name-main/);
+  assert.match(html, /rule-route-side/);
   assert.match(html, /\/api\/user\/detail/);
-  assert.match(html, /rule-side-title/);
   assert.match(html, /rule-side-controls/);
 });
 
