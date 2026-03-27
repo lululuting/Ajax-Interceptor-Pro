@@ -1273,3 +1273,86 @@ input:checked + .toggle-slider:before {
   font-size: 14px;
   color: var(--text2);
 }
+
+/* ===== Icon system ===== */
+.ui-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  vertical-align: middle;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+.logo .ui-icon-logo {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.8;
+}
+
+.group-icon .ui-icon-folder {
+  width: 18px;
+  height: 18px;
+}
+
+.file-drop-content .ui-icon-file {
+  width: 48px;
+  height: 48px;
+  color: var(--primary);
+}
+
+.header-title .logo,
+.search-box > .ui-icon,
+.rule-count > .ui-icon,
+.btn > .ui-icon,
+.btn-icon > .ui-icon,
+.settings-section h3 > .ui-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.content-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rule-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-section h3,
+.modal-header h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-box {
+  color: var(--text3);
+}
+
+.search-box:focus-within {
+  color: var(--primary);
+}
+
+.btn-primary .ui-icon,
+.header .ui-icon {
+  color: currentColor;
+}
+
+#newRuleBtn {
+  color: #fff;
+}
+
+#clearDataBtn .ui-icon {
+  color: currentColor;
+}

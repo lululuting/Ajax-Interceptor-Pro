@@ -91,7 +91,7 @@
   }
 
   // 图标
-  var IC = { folder: '📁', folderOpen: '📂', add: '➕', edit: '✏️', del: '🗑️', download: '📥', code: '💻', finger: '👆', drag: '⋮⋮' };
+  var IC = { folder: '<svg class="ui-icon ui-icon-folder" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path></svg>', folderOpen: '<svg class="ui-icon ui-icon-folder" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1H3V8z"></path><path d="M3 11h18l-2 7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2l-2-7z"></path></svg>', add: '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>', edit: '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>', del: '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>', download: '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>', code: '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9-4 3 4 3"></path><path d="m16 9 4 3-4 3"></path><path d="m14 4-4 16"></path></svg>', finger: '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11V5a1 1 0 0 1 2 0v6"></path><path d="M12 11V4a1 1 0 0 1 2 0v7"></path><path d="M15 11V6a1 1 0 0 1 2 0v7"></path><path d="M18 11V8a1 1 0 0 1 2 0v5c0 5-3 8-8 8-4 0-7-3-7-7v-3a1 1 0 0 1 2 0v2"></path></svg>', drag: '⋮⋮' };
 
   // ========== 渲染侧边栏 ==========
   function renderSidebar() {
@@ -132,7 +132,6 @@
 
     if (showToggle) {
       html += '<div class="group-actions">';
-      html += '<button class="btn-icon group-action-btn rename-group-btn" data-gid="' + id + '" title="重命名分组">✏️</button>';
       html += '<label class="group-toggle" data-gid="' + id + '">';
       html += '<input type="checkbox"' + (enabled ? ' checked' : '') + '>';
       html += '<span class="toggle-slider"></span></label>';
@@ -143,25 +142,11 @@
 
     // 点击切换分组
     div.addEventListener('click', function(e) {
-      if (e.target.closest('.group-toggle') || e.target.closest('.rename-group-btn')) return;
+      if (e.target.closest('.group-toggle')) return;
       currentGroupId = id;
       renderSidebar();
       renderRules();
     });
-
-    var renameBtn = div.querySelector('.rename-group-btn');
-    if (renameBtn) {
-      renameBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        var g = groups.find(function(x) { return x.id === id; });
-        if (g) {
-          editingGroupId = id;
-          document.getElementById('groupModalTitle').textContent = '重命名分组';
-          document.getElementById('groupNameInput').value = g.name;
-          openModal('groupModal');
-        }
-      });
-    }
 
     // 分组开关
     var toggle = div.querySelector('.group-toggle input');
@@ -232,8 +217,28 @@
 
     var titleEl = document.getElementById('currentGroupName');
     var countEl = document.getElementById('ruleCount');
+    var countTextEl = countEl ? countEl.querySelector('span') : null;
+    var renameGroupBtn = document.getElementById('renameCurrentGroupBtn');
     if (titleEl) titleEl.textContent = gname;
-    if (countEl) countEl.textContent = rules.length + ' 条规则';
+    if (countTextEl) countTextEl.textContent = rules.length + ' 条规则';
+    else if (countEl) countEl.textContent = rules.length + ' 条规则';
+
+    if (renameGroupBtn) {
+      if (currentGroupId !== 'all') {
+        renameGroupBtn.style.display = 'inline-flex';
+        renameGroupBtn.onclick = function() {
+          var g = groups.find(function(x) { return x.id === currentGroupId; });
+          if (!g) return;
+          editingGroupId = g.id;
+          document.getElementById('groupModalTitle').textContent = '重命名分组';
+          document.getElementById('groupNameInput').value = g.name;
+          openModal('groupModal');
+        };
+      } else {
+        renameGroupBtn.style.display = 'none';
+        renameGroupBtn.onclick = null;
+      }
+    }
 
     if (rules.length === 0) {
       el.innerHTML = '<div class="empty-state">' +
