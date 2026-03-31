@@ -1,0 +1,27 @@
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 2px;
+  min-height: 32px;
+}
+
+.sidebar-item:hover {
+  background: #f0fdf4;
+}
+
+.sidebar-item.active {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.sidebar-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 2px;
+}
