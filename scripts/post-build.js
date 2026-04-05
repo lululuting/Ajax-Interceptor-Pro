@@ -21,6 +21,7 @@ copy(resolve(root, 'content/content.js'), resolve(dist, 'content/content.js'));
 copy(resolve(root, 'content/inject.js'), resolve(dist, 'content/inject.js'));
 copy(resolve(root, 'devtools.html'), resolve(dist, 'devtools.html'));
 copy(resolve(root, 'devtools.js'), resolve(dist, 'devtools.js'));
+copy(resolve(root, 'popup'), resolve(dist, 'popup'));
 
 // Write manifest pointing to dist paths
 const manifest = {

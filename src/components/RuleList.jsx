@@ -1,30 +1,97 @@
-import React, { useState } from 'react';
-import { Button, Switch, Tag, Tooltip, Popconfirm, Input, Empty } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ExportOutlined, ImportOutlined, ClearOutlined } from '@ant-design/icons';
+import React, { useEffect, useRef, useState } from 'react';
+import { Button, Modal, Popconfirm, Radio, Switch, message } from 'antd';
 import RuleEditor from './RuleEditor';
 import { genId } from '../utils/index';
+import {
+  AddIcon,
+  CodeIcon,
+  DeleteIcon,
+  EditIcon,
+  ExportIcon,
+  FileIcon,
+  ImportIcon,
+  ListIcon,
+  RadarTargetIcon,
+} from './LegacyIcons';
+import { findRuleLocation, getRulePreview, moveRuleToGroup, normalizeGroups, reindexRules, sortGroups } from '../utils/data';
 
-const METHOD_COLORS = { GET: 'green', POST: 'blue', PUT: 'orange', DELETE: 'red', PATCH: 'purple', '*': 'default' };
-
-export default function RuleList({ groups, currentGroupId, hitCounts, settings, onSaveGroups, onSaveHitCounts }) {
-  const [search, setSearch] = useState('');
+export default function RuleList({
+  groups,
+  currentGroupId,
+  search,
+  hitCounts,
+  settings,
+  onSaveGroups,
+  onSaveStoragePatch,
+  onRequestRenameGroup,
+}) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
   const [editingGroupId, setEditingGroupId] = useState(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportScope, setExportScope] = useState('all');
+  const [importOpen, setImportOpen] = useState(false);
+  const [importStrategy, setImportStrategy] = useState('merge');
+  const [importFileName, setImportFileName] = useState('');
+  const [importPayload, setImportPayload] = useState(null);
+  const [fileDragging, setFileDragging] = useState(false);
+  const fileInputRef = useRef(null);
 
-  const visibleGroups = currentGroupId === 'all' ? groups : groups.filter(g => g.id === currentGroupId);
-  const filteredGroups = visibleGroups.map(g => ({
-    ...g,
-    rules: (g.rules || []).filter(r =>
-      !search ||
-      (r.urlPattern || '').toLowerCase().includes(search.toLowerCase()) ||
-      (r.name || '').toLowerCase().includes(search.toLowerCase())
-    ),
-  }));
+  const resetImportState = () => {
+    setImportOpen(false);
+    setImportPayload(null);
+    setImportFileName('');
+    setImportStrategy('merge');
+    setFileDragging(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const currentGroup = currentGroupId === 'all' ? null : groups.find((group) => group.id === currentGroupId);
+  const sortedGroups = sortGroups(groups);
+  const keyword = search.trim().toLowerCase();
+  const visibleRules = [];
+
+  if (currentGroupId === 'all') {
+    sortedGroups.forEach((group) => {
+      (group.rules || []).forEach((rule) => {
+        visibleRules.push({
+          ...rule,
+          groupId: group.id,
+          groupName: group.name,
+          groupEnabled: group.enabled !== false,
+        });
+      });
+    });
+  } else if (currentGroup) {
+    (currentGroup.rules || []).forEach((rule) => {
+      visibleRules.push({
+        ...rule,
+        groupId: currentGroup.id,
+        groupName: currentGroup.name,
+        groupEnabled: currentGroup.enabled !== false,
+      });
+    });
+  }
+
+  const filteredRules = visibleRules
+    .sort((left, right) => (left.order || 0) - (right.order || 0))
+    .filter((rule) => {
+      if (!keyword) {
+        return true;
+      }
+
+      return (
+        (rule.name || '').toLowerCase().includes(keyword) ||
+        (rule.urlPattern || '').toLowerCase().includes(keyword) ||
+        (rule.response || '').toLowerCase().includes(keyword)
+      );
+    });
 
   const handleAddRule = (groupId) => {
     setEditingRule(null);
-    setEditingGroupId(groupId || groups[0]?.id || 'default');
+    setEditingGroupId(groupId || currentGroupId || 'default');
     setEditorOpen(true);
   };
 
@@ -34,130 +101,365 @@ export default function RuleList({ groups, currentGroupId, hitCounts, settings, 
     setEditorOpen(true);
   };
 
-  const handleDeleteRule = async (ruleId, groupId) => {
-    const updated = groups.map(g =>
-      g.id !== groupId ? g : { ...g, rules: (g.rules || []).filter(r => r.id !== ruleId) }
+  const handleDeleteRule = async (ruleId) => {
+    const location = findRuleLocation(groups, ruleId);
+    if (!location) {
+      return;
+    }
+
+    const nextGroups = normalizeGroups(
+      groups.map((group) =>
+        group.id === location.groupId
+          ? { ...group, rules: reindexRules((group.rules || []).filter((rule) => rule.id !== ruleId)) }
+          : group,
+      ),
     );
-    await onSaveGroups(updated);
+    const nextHitCounts = { ...hitCounts };
+    delete nextHitCounts[ruleId];
+
+    await onSaveStoragePatch({
+      groups: nextGroups,
+      hitCounts: nextHitCounts,
+    });
+    message.success('规则已删除');
   };
 
-  const handleToggleRule = async (ruleId, groupId, enabled) => {
-    const updated = groups.map(g =>
-      g.id !== groupId ? g : { ...g, rules: (g.rules || []).map(r => r.id === ruleId ? { ...r, enabled } : r) }
+  const handleToggleRule = async (ruleId, checked) => {
+    const location = findRuleLocation(groups, ruleId);
+    if (!location) {
+      return;
+    }
+
+    const nextGroups = groups.map((group) =>
+      group.id !== location.groupId
+        ? group
+        : {
+            ...group,
+            rules: reindexRules(
+              (group.rules || []).map((rule) => (rule.id === ruleId ? { ...rule, enabled: checked } : rule)),
+            ),
+          },
     );
-    await onSaveGroups(updated);
+    await onSaveGroups(nextGroups);
   };
 
   const handleSaveRule = async (rule, targetGroupId) => {
-    let updated;
+    const normalized = normalizeGroups(groups).map((group) => ({
+      ...group,
+      rules: [...(group.rules || [])],
+    }));
+    const draft = {
+      ...rule,
+      enabled: rule.enabled !== false,
+      method: rule.method || 'GET',
+      status: Number(rule.status) || 200,
+    };
+
     if (editingRule) {
-      // Remove from original group, add/update in target group
-      if (editingGroupId !== targetGroupId) {
-        updated = groups.map(g => {
-          if (g.id === editingGroupId) return { ...g, rules: (g.rules || []).filter(r => r.id !== rule.id) };
-          if (g.id === targetGroupId) return { ...g, rules: [...(g.rules || []), rule] };
-          return g;
-        });
-      } else {
-        updated = groups.map(g =>
-          g.id !== targetGroupId ? g : { ...g, rules: (g.rules || []).map(r => r.id === rule.id ? rule : r) }
+      const originalLocation = findRuleLocation(normalized, editingRule.id);
+      if (!originalLocation) {
+        return;
+      }
+
+      if (originalLocation.groupId === targetGroupId) {
+        const nextGroups = normalized.map((group) =>
+          group.id !== targetGroupId
+            ? group
+            : {
+                ...group,
+                rules: reindexRules(
+                  (group.rules || []).map((item) => (item.id === editingRule.id ? { ...item, ...draft, id: editingRule.id } : item)),
+                ),
+              },
         );
+        await onSaveGroups(nextGroups);
+      } else {
+        const withoutSource = normalized.map((group) =>
+          group.id !== originalLocation.groupId
+            ? group
+            : {
+                ...group,
+                rules: reindexRules((group.rules || []).filter((item) => item.id !== editingRule.id)),
+              },
+        );
+
+        const nextGroups = withoutSource.map((group) =>
+          group.id !== targetGroupId
+            ? group
+            : {
+                ...group,
+                rules: reindexRules([...(group.rules || []), { ...draft, id: editingRule.id }]),
+              },
+        );
+
+        await onSaveGroups(nextGroups);
       }
     } else {
-      updated = groups.map(g =>
-        g.id !== targetGroupId ? g : { ...g, rules: [...(g.rules || []), { ...rule, id: genId() }] }
+      const newRule = { ...draft, id: genId() };
+      const nextGroups = normalized.map((group) =>
+        group.id !== targetGroupId
+          ? group
+          : {
+              ...group,
+              rules: reindexRules([...(group.rules || []), newRule]),
+            },
       );
+      await onSaveGroups(nextGroups);
     }
-    await onSaveGroups(updated);
+
     setEditorOpen(false);
+    setEditingRule(null);
+    message.success(editingRule ? '规则已更新' : '规则已创建');
   };
 
-  const handleExport = () => {
-    const blob = new Blob([JSON.stringify(groups, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'ajax-interceptor-rules.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const doExport = () => {
+    const exportGroups =
+      exportScope === 'current' && currentGroupId !== 'all'
+        ? groups.filter((group) => group.id === currentGroupId)
+        : groups;
 
-  const handleImport = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      try {
-        const imported = JSON.parse(await file.text());
-        if (Array.isArray(imported)) await onSaveGroups(imported);
-      } catch {}
+    const data = {
+      version: '2.1.0',
+      exportTime: new Date().toISOString(),
+      groups: normalizeGroups(exportGroups),
     };
-    input.click();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `ajax-interceptor-${new Date().toISOString().split('T')[0]}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setExportOpen(false);
+    message.success('导出成功');
   };
 
-  const totalRules = groups.reduce((s, g) => s + (g.rules || []).length, 0);
+  const handleImportFile = async (file) => {
+    if (!file) {
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const groupsToImport = Array.isArray(data) ? data : data.groups;
+      if (!Array.isArray(groupsToImport)) {
+        throw new Error('invalid');
+      }
+      setImportPayload(groupsToImport);
+      setImportFileName(file.name);
+      message.success(`已选择：${file.name}`);
+    } catch (error) {
+      setImportPayload(null);
+      setImportFileName('');
+      message.error('文件格式错误');
+    }
+  };
+
+  const doImport = async () => {
+    if (!importPayload) {
+      message.error('请先选择导入文件');
+      return;
+    }
+
+    let nextGroups;
+    if (importStrategy === 'overwrite') {
+      nextGroups = normalizeGroups(
+        importPayload.map((group) => ({
+          ...group,
+          id: group.id === 'default' ? 'default' : genId(),
+          rules: (group.rules || []).map((rule) => ({ ...rule, id: genId() })),
+        })),
+      );
+    } else {
+      const merged = normalizeGroups(groups).map((group) => ({
+        ...group,
+        rules: [...(group.rules || [])],
+      }));
+
+      importPayload.forEach((incoming) => {
+        const match =
+          merged.find((group) => group.name === incoming.name) ||
+          (incoming.id === 'default' ? merged.find((group) => group.id === 'default') : null);
+
+        if (match) {
+          const existingRules = match.rules || [];
+          (incoming.rules || []).forEach((rule) => {
+            const duplicated = existingRules.some(
+              (item) => item.urlPattern === rule.urlPattern && (item.method || 'GET') === (rule.method || 'GET'),
+            );
+            if (!duplicated) {
+              existingRules.push({ ...rule, id: genId() });
+            }
+          });
+          match.rules = reindexRules(existingRules);
+        } else {
+          merged.push({
+            ...incoming,
+            id: incoming.id === 'default' ? 'default' : genId(),
+            rules: (incoming.rules || []).map((rule) => ({ ...rule, id: genId() })),
+          });
+        }
+      });
+
+      nextGroups = normalizeGroups(merged);
+    }
+
+    await onSaveGroups(nextGroups);
+    resetImportState();
+    message.success('导入成功');
+  };
+
+  const handleRuleDragStart = (event, ruleId, groupId) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', ruleId);
+    event.dataTransfer.setData('application/ajax-interceptor-rule', JSON.stringify({ ruleId, fromGroupId: groupId }));
+    event.currentTarget.classList.add('dragging');
+  };
+
+  const handleRuleDragEnd = (event) => {
+    event.currentTarget.classList.remove('dragging');
+  };
+
+  const handleRuleDrop = async (event) => {
+    if (currentGroupId === 'all') {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.classList.remove('drag-over');
+    const payload = event.dataTransfer.getData('application/ajax-interceptor-rule');
+    let ruleId = event.dataTransfer.getData('text/plain');
+    let fromGroupId = null;
+    if (payload) {
+      try {
+        const data = JSON.parse(payload);
+        ruleId = data.ruleId;
+        fromGroupId = data.fromGroupId;
+      } catch (error) {
+        ruleId = event.dataTransfer.getData('text/plain');
+      }
+    }
+    
+    // 获取拖动时的具体位置
+    const rect = event.currentTarget.getBoundingClientRect();
+    const y = event.clientY - rect.top;
+    const items = event.currentTarget.querySelectorAll('.rule-item');
+    let targetIndex = items.length;
+    
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const itemRect = item.getBoundingClientRect();
+      const itemY = itemRect.top - rect.top + itemRect.height / 2;
+      if (y < itemY) {
+        targetIndex = i;
+        break;
+      }
+    }
+    
+    // 简化实现，直接调用 moveRuleToGroup 函数
+    // 该函数已经处理了同一组内移动时的索引调整
+    const moved = moveRuleToGroup(groups, ruleId, currentGroupId, targetIndex);
+    if (!moved) {
+      return;
+    }
+
+    await onSaveGroups(moved.groups);
+    message.success(moved.fromGroup.id === currentGroupId ? '规则顺序已更新' : `规则已移动到 ${moved.toGroup.name}`);
+  };
+
+  const currentGroupName = currentGroupId === 'all' ? '全部规则' : (currentGroup?.name || '规则列表');
+  const allowRenameCurrentGroup = currentGroupId !== 'all' && currentGroup;
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f9fafb' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: '1px solid #e5e7eb', background: '#fff', flexShrink: 0 }}>
-        <Input
-          prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
-          placeholder="搜索规则..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          size="small"
-          style={{ flex: 1, maxWidth: 260 }}
-          allowClear
-        />
-        <div style={{ flex: 1 }} />
-        <Tooltip title="导入规则"><Button size="small" icon={<ImportOutlined />} onClick={handleImport} /></Tooltip>
-        <Tooltip title="导出规则"><Button size="small" icon={<ExportOutlined />} onClick={handleExport} /></Tooltip>
-        <Tooltip title="清除命中计数"><Button size="small" icon={<ClearOutlined />} onClick={() => onSaveHitCounts({})} /></Tooltip>
-        <Button
-          type="primary"
-          size="small"
-          icon={<PlusOutlined />}
-          onClick={() => handleAddRule(currentGroupId === 'all' ? groups[0]?.id : currentGroupId)}
-          style={{ background: '#10b981', borderColor: '#10b981' }}
-        >
-          新建规则
-        </Button>
+    <main className="content">
+      <div className="content-header">
+        <div className="content-title-wrap">
+          <h2 id="currentGroupName">{currentGroupName}</h2>
+          {allowRenameCurrentGroup && (
+            <Button
+              type="text"
+              size="small"
+              icon={<EditIcon />}
+              title="重命名分组"
+              className="rename-current-group-btn btn-icon action-btn"
+              onClick={() => onRequestRenameGroup(currentGroup.id)}
+            />
+          )}
+        </div>
+        <span className="rule-count">
+          <ListIcon />
+          <span>{filteredRules.length} 条规则</span>
+        </span>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-        {totalRules === 0 && !search ? (
-          <Empty description="暂无规则" style={{ marginTop: 60 }} />
-        ) : (
-          filteredGroups.map(g => (
-            <div key={g.id} style={{ marginBottom: 16 }}>
-              {currentGroupId === 'all' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#6b7280' }}>{g.name}</span>
-                  <span style={{ fontSize: 11, color: '#9ca3af' }}>({(g.rules || []).length})</span>
-                </div>
-              )}
-              {(g.rules || []).length === 0 && search ? null : (
-                (g.rules || []).map(rule => (
-                  <RuleCard
-                    key={rule.id}
-                    rule={rule}
-                    groupId={g.id}
-                    hitCount={hitCounts[rule.id] || 0}
-                    showHitCount={settings.showHitCount}
-                    onEdit={() => handleEditRule(rule, g.id)}
-                    onDelete={() => handleDeleteRule(rule.id, g.id)}
-                    onToggle={(enabled) => handleToggleRule(rule.id, g.id, enabled)}
-                  />
-                ))
-              )}
-              {(g.rules || []).length === 0 && !search && currentGroupId !== 'all' && (
-                <Empty description="此分组暂无规则" style={{ margin: '20px 0' }} />
-              )}
+      <div className="rule-list" id="ruleList">
+        {filteredRules.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">
+              <CodeIcon />
             </div>
-          ))
+            <h3>{keyword ? '未找到匹配规则' : '暂无规则'}</h3>
+            <p>{keyword ? '尝试其他关键词' : '点击添加规则创建接口拦截'}</p>
+            {!keyword && (
+              <Button type="primary" className="btn btn-primary" icon={<AddIcon />} onClick={() => handleAddRule(currentGroupId === 'all' ? 'default' : currentGroupId)}>
+                添加规则
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="rule-card">
+            <div
+              className="rule-items"
+              data-gid={currentGroupId}
+              onDragOver={
+                currentGroupId === 'all'
+                  ? undefined
+                  : (event) => {
+                      event.preventDefault();
+                      event.currentTarget.classList.add('drag-over');
+                    }
+              }
+              onDragLeave={
+                currentGroupId === 'all'
+                  ? undefined
+                  : (event) => {
+                      event.currentTarget.classList.remove('drag-over');
+                    }
+              }
+              onDrop={currentGroupId === 'all' ? undefined : handleRuleDrop}
+            >
+              {filteredRules.map((rule) => (
+                <RuleItem
+                  key={rule.id}
+                  rule={rule}
+                  groupId={rule.groupId}
+                  hitCount={hitCounts?.[rule.id] || 0}
+                  showHitCount={settings?.showHitCount !== false}
+                  showGroupName={currentGroupId === 'all'}
+                  onEdit={() => handleEditRule(rule, rule.groupId)}
+                  onDelete={() => handleDeleteRule(rule.id)}
+                  onToggle={(checked) => handleToggleRule(rule.id, checked)}
+                  onDragStart={(event) => handleRuleDragStart(event, rule.id, rule.groupId)}
+                  onDragEnd={handleRuleDragEnd}
+                />
+              ))}
+            </div>
+          </div>
         )}
+      </div>
+
+      <div className="content-footer">
+        <Button type="primary" icon={<AddIcon />} onClick={() => handleAddRule(currentGroupId === 'all' ? 'default' : currentGroupId)}>
+          添加规则
+        </Button>
+        <div className="spacer"></div>
+        <Button icon={<ImportIcon />} onClick={() => setImportOpen(true)}>
+          导入
+        </Button>
+        <Button icon={<ExportIcon />} onClick={() => setExportOpen(true)}>
+          导出
+        </Button>
       </div>
 
       <RuleEditor
@@ -165,65 +467,160 @@ export default function RuleList({ groups, currentGroupId, hitCounts, settings, 
         rule={editingRule}
         groupId={editingGroupId}
         groups={groups}
-        onClose={() => setEditorOpen(false)}
         onSave={handleSaveRule}
+        onClose={() => {
+          setEditorOpen(false);
+          setEditingRule(null);
+        }}
       />
-    </div>
+      <Modal
+        open={exportOpen}
+        title="导出数据"
+        onCancel={() => setExportOpen(false)}
+        onOk={doExport}
+        okText="导出"
+        cancelText="取消"
+        centered
+        maskClosable
+      >
+        <Radio.Group value={exportScope} onChange={(event) => setExportScope(event.target.value)} className="radio-group">
+          <Radio value="all">导出全部</Radio>
+          <Radio value="current">仅导出当前分组</Radio>
+        </Radio.Group>
+      </Modal>
+      <Modal
+        open={importOpen}
+        title="导入数据"
+        onCancel={resetImportState}
+        onOk={doImport}
+        okText="导入"
+        cancelText="取消"
+        okButtonProps={{ disabled: !importPayload }}
+        centered
+        maskClosable
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          hidden
+          onChange={(event) => handleImportFile(event.target.files?.[0])}
+        />
+        <div
+          className={`file-drop-zone${fileDragging ? ' drag-over' : ''}`}
+          onClick={() => {
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+              fileInputRef.current.click();
+            }
+          }}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setFileDragging(true);
+          }}
+          onDragLeave={() => setFileDragging(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setFileDragging(false);
+            handleImportFile(event.dataTransfer.files?.[0]);
+          }}
+        >
+          <div className="file-drop-content">
+            <FileIcon />
+            <p>{importFileName || '点击或拖拽文件到此处'}</p>
+            <p className="text-muted">支持 .json 格式</p>
+          </div>
+        </div>
+        <Radio.Group
+          value={importStrategy}
+          onChange={(event) => setImportStrategy(event.target.value)}
+          className="radio-group import-radio-group"
+        >
+          <Radio value="merge">合并</Radio>
+          <Radio value="overwrite">覆盖</Radio>
+        </Radio.Group>
+      </Modal>
+    </main>
   );
 }
 
-function RuleCard({ rule, hitCount, showHitCount, onEdit, onDelete, onToggle }) {
+function RuleItem({
+  rule,
+  hitCount,
+  showHitCount,
+  showGroupName,
+  onEdit,
+  onDelete,
+  onToggle,
+  onDragStart,
+  onDragEnd,
+}) {
+  const enabled = rule.enabled !== false;
+  const method = rule.method || 'GET';
+  const methodClass = String(method === '*' ? 'all' : method).toLowerCase();
+  const preview = getRulePreview(rule.response, 50);
+  const previousHitCountRef = useRef(hitCount);
+  const [hitAnimationVersion, setHitAnimationVersion] = useState(0);
+
+  useEffect(() => {
+    if (hitCount > previousHitCountRef.current) {
+      setHitAnimationVersion((version) => version + 1);
+    }
+    previousHitCountRef.current = hitCount;
+  }, [hitCount]);
+
   return (
-    <div style={{
-      background: '#fff',
-      border: '1px solid #e5e7eb',
-      borderRadius: 10,
-      padding: '10px 14px',
-      marginBottom: 8,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      opacity: rule.enabled ? 1 : 0.5,
-      transition: 'opacity 0.2s',
-    }}>
-      <Switch
-        checked={rule.enabled}
-        onChange={onToggle}
-        size="small"
-        style={{ flexShrink: 0 }}
-      />
-      <Tag color={METHOD_COLORS[rule.method] || 'default'} style={{ flexShrink: 0, margin: 0, fontSize: 11 }}>
-        {rule.method || '*'}
-      </Tag>
-      <div style={{ flex: 1, overflow: 'hidden' }}>
-        {rule.name && (
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {rule.name}
-          </div>
-        )}
-        <div style={{ fontSize: 12, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {rule.urlPattern}
+    <div
+      className={`rule-item${!enabled || rule.groupEnabled === false ? ' disabled' : ''}`}
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+    >
+      <span className="drag-handle" title="拖动排序">⋮⋮</span>
+      <div className="rule-main">
+        <div className="rule-name-row">
+          <span className={`rule-method ${methodClass}`}>{method}</span>
+          <span className="rule-name rule-name-main" title={rule.name || '未命名规则'}>
+            {rule.name || '未命名规则'}
+          </span>
+        </div>
+        <div className="rule-meta">
+          {showGroupName && rule.groupName ? <span className="rule-group-label">{rule.groupName}</span> : null}
+          <code className="rule-preview">{preview}</code>
         </div>
       </div>
-      {showHitCount && hitCount > 0 && (
-        <Tag color="green" style={{ flexShrink: 0, margin: 0, fontSize: 11 }}>{hitCount} 次</Tag>
-      )}
-      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-        <Tooltip title="编辑">
-          <Button type="text" size="small" icon={<EditOutlined />} onClick={onEdit} style={{ color: '#6b7280' }} />
-        </Tooltip>
-        <Popconfirm
-          title="删除规则"
-          description="确定要删除这条规则吗？"
-          onConfirm={onDelete}
-          okText="删除"
-          cancelText="取消"
-          okButtonProps={{ danger: true }}
-        >
-          <Tooltip title="删除">
-            <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: '#ef4444' }} />
-          </Tooltip>
-        </Popconfirm>
+      <div className="rule-side">
+        <div className="rule-side-title">
+          <span className="rule-url rule-route-side" title={rule.urlPattern}>
+            {rule.urlPattern}
+          </span>
+        </div>
+        <div className="rule-side-controls">
+          {showHitCount && (
+            <span
+              key={`${rule.id}-${hitAnimationVersion}`}
+              className={`hit-badge${hitCount > 0 ? ' hit-active' : ''}${hitAnimationVersion > 0 ? ' hit-badge-burst' : ''}`}
+              title={`命中 ${hitCount} 次`}
+            >
+              <b>{hitCount}</b>
+              <RadarTargetIcon />
+            </span>
+          )}
+          <Switch checked={enabled} onChange={onToggle} size="small" />
+          <div className="rule-actions">
+            <Button type="text" size="small" icon={<EditIcon />} onClick={onEdit} className="btn-icon action-btn action-btn-edit" />
+            <Popconfirm
+              title="删除规则"
+              description="确定要删除这条规则吗？"
+              onConfirm={onDelete}
+              okText="删除"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+            >
+              <Button type="text" size="small" icon={<DeleteIcon />} className="btn-icon action-btn action-btn-delete" />
+            </Popconfirm>
+          </div>
+        </div>
       </div>
     </div>
   );

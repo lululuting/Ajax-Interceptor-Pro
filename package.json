@@ -1,26 +1,18 @@
 {
   "name": "ajax-interceptor-pro",
-  "version": "1.0.0",
-  "description": "基于 [ajax-interceptor](https://github.com/YGYOOO/ajax-interceptor) 增强的 Chrome 插件，新增**接口分组管理**和**导入导出**功能。",
-  "main": "devtools-panel.js",
-  "directories": {
-    "doc": "docs"
-  },
+  "version": "2.1.0",
+  "description": "基于 Ajax Interceptor 演进的 Chrome 接口拦截插件，支持分组管理、导入导出和命中统计。",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "dev": "vite build --watch",
     "build": "vite build && node scripts/post-build.js"
   },
-  "keywords": [],
-  "author": "",
   "type": "module",
   "license": "ISC",
   "dependencies": {
-    "@ant-design/icons": "^6.1.1",
     "antd": "^6.3.5",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "vanilla-jsoneditor": "^3.11.0"
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.1",

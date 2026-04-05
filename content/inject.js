@@ -1,10 +1,132 @@
 (function() {
   var originalXHROpen = XMLHttpRequest.prototype.open;
   var originalXHRSend = XMLHttpRequest.prototype.send;
+  var originalFetch = window.fetch;
+
+  function normalizeMethod(method) {
+    return String(method || 'GET').toUpperCase();
+  }
+
+  function normalizeUrl(url) {
+    try {
+      return new URL(url, window.location.href).href;
+    } catch (error) {
+      return String(url || '');
+    }
+  }
+
+  function requestIntercept(url, method) {
+    return new Promise(function(resolve) {
+      var requestId = 'intercept-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
+      function onInterceptorMessage(event) {
+        if (event.source !== window) return;
+        if (!event.data || event.data.type !== 'AJAX_INTERCEPTOR_RESPONSE') return;
+        if (event.data.requestId !== requestId) return;
+
+        window.removeEventListener('message', onInterceptorMessage);
+        resolve(event.data.response || null);
+      }
+
+      window.addEventListener('message', onInterceptorMessage);
+      window.postMessage({
+        type: 'AJAX_INTERCEPTOR_REQUEST',
+        requestId: requestId,
+        url: normalizeUrl(url),
+        method: normalizeMethod(method)
+      }, '*');
+    });
+  }
+
+  function toResponseText(data) {
+    return typeof data === 'string' ? data : JSON.stringify(data);
+  }
+
+  function toFetchResponse(resp) {
+    var body = toResponseText(resp.data);
+    var headers = new Headers({ 'Content-Type': 'application/json' });
+    var contentType = resp.contentType || resp.mimeType;
+
+    if (contentType) {
+      headers.set('Content-Type', contentType);
+    }
+
+    return new Response(new Blob([body], { type: headers.get('Content-Type') || 'application/json' }), {
+      status: resp.status || 200,
+      statusText: 'OK',
+      headers: headers
+    });
+  }
+
+  function toXhrResponseBody(xhr, text, rawData) {
+    if (xhr.responseType === 'json') {
+      if (typeof rawData === 'string') {
+        try {
+          return JSON.parse(rawData);
+        } catch (error) {
+          return null;
+        }
+      }
+      return rawData;
+    }
+
+    if (xhr.responseType === 'arraybuffer') {
+      return new TextEncoder().encode(text).buffer;
+    }
+
+    if (xhr.responseType === 'blob') {
+      return new Blob([text], { type: 'application/json' });
+    }
+
+    return text;
+  }
+
+  function mockXhrResponse(xhr, response, url) {
+    var readyState = 1;
+    var status = response.status || 200;
+    var responseText = toResponseText(response.data);
+    var responseBody = toXhrResponseBody(xhr, responseText, response.data);
+
+    Object.defineProperty(xhr, 'readyState', {
+      get: function() { return readyState; },
+      configurable: true
+    });
+    Object.defineProperty(xhr, 'status', {
+      get: function() { return status; },
+      configurable: true
+    });
+    Object.defineProperty(xhr, 'statusText', {
+      get: function() { return 'OK'; },
+      configurable: true
+    });
+    Object.defineProperty(xhr, 'responseText', {
+      get: function() { return responseText; },
+      configurable: true
+    });
+    Object.defineProperty(xhr, 'response', {
+      get: function() { return responseBody; },
+      configurable: true
+    });
+    Object.defineProperty(xhr, 'responseURL', {
+      get: function() { return url; },
+      configurable: true
+    });
+
+    setTimeout(function() {
+      readyState = 2;
+      xhr.dispatchEvent(new Event('readystatechange'));
+      readyState = 3;
+      xhr.dispatchEvent(new Event('readystatechange'));
+      readyState = 4;
+      xhr.dispatchEvent(new Event('readystatechange'));
+      xhr.dispatchEvent(new Event('load'));
+      xhr.dispatchEvent(new Event('loadend'));
+    }, 0);
+  }
 
   XMLHttpRequest.prototype.open = function(method, url) {
-    this._interceptMethod = method;
-    this._interceptUrl = url;
+    this._interceptMethod = normalizeMethod(method);
+    this._interceptUrl = normalizeUrl(url);
     return originalXHROpen.apply(this, arguments);
   };
 
@@ -12,136 +134,41 @@
     var xhr = this;
     var url = xhr._interceptUrl || '';
     var method = xhr._interceptMethod || 'GET';
-    var requestId = 'xhr-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    var args = arguments;
 
-    // Save original callbacks
-    var _onreadystatechange = xhr.onreadystatechange;
-    var _onload = xhr.onload;
-    var _onerror = xhr.onerror;
-
-    // Block real response propagation until we decide
-    var intercepted = false;
-
-    // Temporarily suppress real callbacks
-    xhr.onreadystatechange = null;
-    xhr.onload = null;
-    xhr.onerror = null;
-
-    // Listen for interceptor response
-    function onInterceptorMessage(event) {
-      if (event.source !== window) return;
-      if (event.data.type !== 'AJAX_INTERCEPTOR_RESPONSE') return;
-      if (event.data.requestId !== requestId) return;
-
-      window.removeEventListener('message', onInterceptorMessage);
-
-      var resp = event.data.response;
-      if (resp && resp.data !== undefined && resp.data !== null) {
-        intercepted = true;
-        // Abort the real request silently
-        try { xhr.abort(); } catch(e) {}
-
-        // Restore original callbacks so they fire with mock data
-        xhr.onreadystatechange = _onreadystatechange;
-        xhr.onload = _onload;
-        xhr.onerror = _onerror;
-
-        // Create a mock response via a completed fake XHR state
-        // Override response properties
-        Object.defineProperty(xhr, 'readyState', { get: function() { return 4; }, configurable: true });
-        Object.defineProperty(xhr, 'status', { get: function() { return resp.status || 200; }, configurable: true });
-        Object.defineProperty(xhr, 'statusText', { get: function() { return 'OK'; }, configurable: true });
-        var responseText = typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data);
-        Object.defineProperty(xhr, 'responseText', { get: function() { return responseText; }, configurable: true });
-        Object.defineProperty(xhr, 'response', { get: function() { return responseText; }, configurable: true });
-
-        if (_onreadystatechange) {
-          try { _onreadystatechange.call(xhr); } catch(e) {}
+    requestIntercept(url, method)
+      .then(function(resp) {
+        if (resp && resp.data !== undefined && resp.data !== null) {
+          mockXhrResponse(xhr, resp, url);
+          return;
         }
-        if (_onload) {
-          try { _onload.call(xhr); } catch(e) {}
-        }
-      } else {
-        // No interception: restore callbacks and let real request proceed
-        xhr.onreadystatechange = _onreadystatechange;
-        xhr.onload = _onload;
-        xhr.onerror = _onerror;
-      }
-    }
 
-    window.addEventListener('message', onInterceptorMessage);
-
-    // Send the real request
-    originalXHRSend.apply(xhr, arguments);
-
-    // Ask interceptor
-    window.postMessage({
-      type: 'AJAX_INTERCEPTOR_REQUEST',
-      requestId: requestId,
-      url: url,
-      method: method
-    }, '*');
-
-    // Timeout: if no interceptor response within 100ms, restore callbacks
-    setTimeout(function() {
-      if (!intercepted) {
-        window.removeEventListener('message', onInterceptorMessage);
-        xhr.onreadystatechange = _onreadystatechange;
-        xhr.onload = _onload;
-        xhr.onerror = _onerror;
-      }
-    }, 100);
+        originalXHRSend.apply(xhr, args);
+      })
+      .catch(function() {
+        originalXHRSend.apply(xhr, args);
+      });
   };
 
-  // --- Fetch interception ---
-  var originalFetch = window.fetch;
   window.fetch = function(input, options) {
-    return new Promise(function(resolve, reject) {
-      var urlString = typeof input === 'string' ? input : (input instanceof URL ? input.href : input.url);
-      var method = (options && options.method) ? options.method.toUpperCase() : 'GET';
-      var requestId = 'fetch-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    var urlString = typeof input === 'string'
+      ? input
+      : (input instanceof URL ? input.href : input.url);
+    var method = options && options.method
+      ? options.method
+      : (input && input.method ? input.method : 'GET');
 
-      var done = false;
-
-      var listener = function(event) {
-        if (event.source !== window) return;
-        if (event.data.type !== 'AJAX_INTERCEPTOR_RESPONSE') return;
-        if (event.data.requestId !== requestId) return;
-
-        window.removeEventListener('message', listener);
-        done = true;
-
-        var resp = event.data.response;
+    return requestIntercept(urlString, method)
+      .then(function(resp) {
         if (resp && resp.data !== undefined && resp.data !== null) {
-          var body = typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data);
-          var blob = new Blob([body], { type: 'application/json' });
-          var response = new Response(blob, {
-            status: resp.status || 200,
-            statusText: 'OK',
-            headers: new Headers({ 'Content-Type': 'application/json' })
-          });
-          resolve(response);
-        } else {
-          originalFetch(input, options).then(resolve).catch(reject);
+          return toFetchResponse(resp);
         }
-      };
 
-      window.addEventListener('message', listener);
-
-      window.postMessage({
-        type: 'AJAX_INTERCEPTOR_REQUEST',
-        requestId: requestId,
-        url: urlString,
-        method: method
-      }, '*');
-
-      setTimeout(function() {
-        if (!done) {
-          window.removeEventListener('message', listener);
-          originalFetch(input, options).then(resolve).catch(reject);
-        }
-      }, 100);
-    });
+        return originalFetch(input, options);
+      })
+      .catch(function() {
+        return originalFetch(input, options);
+      });
   };
 
   console.log('[Ajax Interceptor Pro] Injected successfully');

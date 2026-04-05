@@ -48,7 +48,10 @@ async function handleInterceptRequest(url, method) {
         hitCounts[rule.id] = (hitCounts[rule.id] || 0) + 1;
         await chrome.storage.local.set({ hitCounts: hitCounts });
 
-        return { data: rule.response, status: rule.status || 200 };
+        // 确保响应数据有效
+        if (rule.response !== undefined && rule.response !== null) {
+          return { data: rule.response, status: rule.status || 200 };
+        }
       }
     }
   }
@@ -66,18 +69,11 @@ function matchUrl(url, pattern) {
 }
 
 chrome.runtime.onInstalled.addListener(function() {
-  chrome.storage.local.get(['groups', 'settings'], function(result) {
+  chrome.storage.local.get(['settings'], function(result) {
     var payload = {};
 
-    if (!result.groups) {
-      payload.groups = [{ id: 'default', name: '未分组', enabled: true, order: 999, rules: [] }];
-      payload.globalEnabled = true;
-      payload.hitCounts = {};
-      payload.version = '2.1.0';
-    }
-
     if (!result.settings) {
-      payload.settings = { showHitCount: true, enableAnimations: true, openMode: 'popup' };
+      payload.settings = { showHitCount: true, openMode: 'popup' };
     } else if (!result.settings.openMode) {
       payload.settings = Object.assign({}, result.settings, { openMode: 'popup' });
     }

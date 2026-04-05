@@ -1,6 +1,8 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { buildRuleItemViewModel, renderRuleItemHtml } = require('../libs/shared-ui.js');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import '../libs/shared-ui.js';
+
+const { buildRuleItemViewModel, renderRuleItemHtml } = globalThis.SharedUI;
 
 test('renderRuleItemHtml renders name on the left and route on the right', () => {
   const vm = buildRuleItemViewModel({

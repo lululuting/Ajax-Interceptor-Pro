@@ -1,6 +1,8 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { getModePresentation } = require('../libs/mode-config.js');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import '../libs/mode-config.js';
+
+const { getModePresentation } = globalThis.ModeConfig;
 
 test('popup mode enables popup and disables devtools full UI', () => {
   const result = getModePresentation('popup');
