@@ -129,8 +129,15 @@ export default function App({ mode }) {
         {runtimeHint ? (
           <main className="mode-placeholder">
             <div className="mode-placeholder-card">
+              <div className="mode-placeholder-badge">运行模式提示</div>
+              <div className="mode-placeholder-icon" aria-hidden="true">
+                <LogoIcon />
+              </div>
               <h2>{runtimeHint.title}</h2>
               <p>{runtimeHint.message}</p>
+              <div className="mode-placeholder-note">
+                当前扩展主界面已经切换到 DevTools 面板，点击页面后按 `F12`，在顶部找到“Ajax拦截”标签即可。
+              </div>
             </div>
           </main>
         ) : (

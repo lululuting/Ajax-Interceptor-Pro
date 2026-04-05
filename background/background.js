@@ -1,5 +1,62 @@
 // Background service worker
 
+var stateCache = {
+  groups: [],
+  globalEnabled: true,
+  hitCounts: {}
+};
+var stateCachePromise = null;
+var hitCountFlushTimer = null;
+var hitCountsDirty = false;
+
+async function hydrateStateCache(force) {
+  if (!force && stateCachePromise) {
+    return stateCachePromise;
+  }
+
+  stateCachePromise = chrome.storage.local
+    .get(['groups', 'globalEnabled', 'hitCounts'])
+    .then(function(data) {
+      stateCache = {
+        groups: data.groups || [],
+        globalEnabled: data.globalEnabled !== false,
+        hitCounts: data.hitCounts || {}
+      };
+      return stateCache;
+    })
+    .catch(function(error) {
+      console.error('读取拦截缓存失败:', error);
+      return stateCache;
+    });
+
+  return stateCachePromise;
+}
+
+function scheduleHitCountsFlush() {
+  hitCountsDirty = true;
+
+  if (hitCountFlushTimer) {
+    return;
+  }
+
+  hitCountFlushTimer = setTimeout(async function() {
+    hitCountFlushTimer = null;
+
+    if (!hitCountsDirty) {
+      return;
+    }
+
+    hitCountsDirty = false;
+
+    try {
+      await chrome.storage.local.set({ hitCounts: stateCache.hitCounts });
+    } catch (error) {
+      hitCountsDirty = true;
+      console.error('写入命中计数失败:', error);
+    }
+  }, 240);
+}
+
 async function applyModeToAction(mode) {
   var effectiveMode = mode === 'devtools' ? 'devtools' : 'popup';
   var popupPath = effectiveMode === 'devtools' ? 'popup/mode-hint.html' : 'popup.entry.html';
@@ -26,12 +83,11 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 });
 
 async function handleInterceptRequest(url, method) {
-  var data = await chrome.storage.local.get(['groups', 'globalEnabled', 'hitCounts']);
+  var data = await hydrateStateCache();
 
   if (data.globalEnabled === false) return null;
 
   var groups = data.groups || [];
-  var hitCounts = data.hitCounts || {};
 
   for (var i = 0; i < groups.length; i++) {
     var group = groups[i];
@@ -45,8 +101,8 @@ async function handleInterceptRequest(url, method) {
       if (rule.method && rule.method !== '*' && rule.method !== method) continue;
 
       if (matchUrl(url, rule.urlPattern)) {
-        hitCounts[rule.id] = (hitCounts[rule.id] || 0) + 1;
-        await chrome.storage.local.set({ hitCounts: hitCounts });
+        stateCache.hitCounts[rule.id] = (stateCache.hitCounts[rule.id] || 0) + 1;
+        scheduleHitCountsFlush();
 
         // 确保响应数据有效
         if (rule.response !== undefined && rule.response !== null) {
@@ -93,9 +149,25 @@ chrome.runtime.onStartup.addListener(function() {
 });
 
 chrome.storage.onChanged.addListener(function(changes, areaName) {
-  if (areaName !== 'local' || !changes.settings) return;
-  var next = changes.settings.newValue || {};
-  applyModeToAction(next.openMode);
+  if (areaName !== 'local') return;
+
+  if (changes.groups) {
+    stateCache.groups = changes.groups.newValue || [];
+  }
+
+  if (changes.globalEnabled) {
+    stateCache.globalEnabled = changes.globalEnabled.newValue !== false;
+  }
+
+  if (changes.hitCounts) {
+    stateCache.hitCounts = changes.hitCounts.newValue || {};
+  }
+
+  if (changes.settings) {
+    var next = changes.settings.newValue || {};
+    applyModeToAction(next.openMode);
+  }
 });
 
+hydrateStateCache();
 syncActionPopupFromSettings();

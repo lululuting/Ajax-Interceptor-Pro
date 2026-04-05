@@ -18,17 +18,37 @@
   function requestIntercept(url, method) {
     return new Promise(function(resolve) {
       var requestId = 'intercept-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+      var finished = false;
+      var timeoutId = null;
+
+      function cleanup() {
+        window.removeEventListener('message', onInterceptorMessage);
+        if (timeoutId) {
+          window.clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+      }
+
+      function finish(response) {
+        if (finished) return;
+        finished = true;
+        cleanup();
+        resolve(response || null);
+      }
 
       function onInterceptorMessage(event) {
         if (event.source !== window) return;
         if (!event.data || event.data.type !== 'AJAX_INTERCEPTOR_RESPONSE') return;
         if (event.data.requestId !== requestId) return;
 
-        window.removeEventListener('message', onInterceptorMessage);
-        resolve(event.data.response || null);
+        finish(event.data.response);
       }
 
       window.addEventListener('message', onInterceptorMessage);
+      timeoutId = window.setTimeout(function() {
+        finish(null);
+      }, 1200);
+
       window.postMessage({
         type: 'AJAX_INTERCEPTOR_REQUEST',
         requestId: requestId,

@@ -1,0 +1,87 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="160" y1="40" x2="1120" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#061312"/>
+      <stop offset="1" stop-color="#0B1E1A"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="280" y1="160" x2="1000" y2="500" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#0C2220" stop-opacity="0.96"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="393" y1="263" x2="445" y2="315" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399"/>
+      <stop offset="1" stop-color="#10B981"/>
+    </linearGradient>
+    <linearGradient id="flare" x1="418" y1="321" x2="418" y2="353" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDE68A"/>
+      <stop offset="1" stop-color="#F97316"/>
+    </linearGradient>
+    <filter id="shadow" x="222" y="112" width="836" height="412" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="12"/>
+      <feGaussianBlur stdDeviation="24"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0117647 0 0 0 0 0.0666667 0 0 0 0 0.0588235 0 0 0 0.34 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_0_1" result="shape"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="640" rx="36" fill="url(#bg)"/>
+
+  <circle cx="172" cy="116" r="102" stroke="#183330" stroke-width="5"/>
+  <circle cx="172" cy="116" r="27" stroke="#244844" stroke-width="5"/>
+  <path d="M172 14V61" stroke="#183330" stroke-width="5"/>
+  <path d="M172 171V218" stroke="#183330" stroke-width="5"/>
+  <path d="M70 116H117" stroke="#183330" stroke-width="5"/>
+  <path d="M227 116H274" stroke="#183330" stroke-width="5"/>
+
+  <circle cx="1098" cy="138" r="120" stroke="#17312D" stroke-width="4"/>
+  <circle cx="1098" cy="138" r="84" stroke="#17312D" stroke-width="4"/>
+  <circle cx="1098" cy="138" r="22" stroke="#244844" stroke-width="4"/>
+
+  <circle cx="1020" cy="496" r="78" stroke="#1A3430" stroke-width="4"/>
+  <circle cx="1020" cy="496" r="44" stroke="#1A3430" stroke-width="4"/>
+  <circle cx="1020" cy="496" r="16" stroke="#244844" stroke-width="4"/>
+
+  <path d="M74 462C176 406 280 416 376 470" stroke="#12312B" stroke-width="3" stroke-linecap="round"/>
+  <path d="M880 100C970 70 1076 82 1160 136" stroke="#12312B" stroke-width="3" stroke-linecap="round"/>
+  <path d="M884 508C970 462 1074 460 1156 494" stroke="#12312B" stroke-width="3" stroke-linecap="round"/>
+
+  <g filter="url(#shadow)">
+    <rect x="270" y="148" width="740" height="328" rx="28" fill="url(#panel)"/>
+    <rect x="271.5" y="149.5" width="737" height="325" rx="26.5" stroke="#1C3F3A" stroke-width="3"/>
+  </g>
+
+  <circle cx="394" cy="289" r="88" fill="#091816" stroke="#1D5B50" stroke-width="4"/>
+  <circle cx="394" cy="289" r="58" stroke="#1D5B50" stroke-width="4"/>
+  <circle cx="394" cy="289" r="28" stroke="#285F55" stroke-width="4"/>
+  <path d="M394 177V220" stroke="#2F6A5F" stroke-width="5" stroke-linecap="round"/>
+  <path d="M394 358V401" stroke="#2F6A5F" stroke-width="5" stroke-linecap="round"/>
+  <path d="M282 289H325" stroke="#2F6A5F" stroke-width="5" stroke-linecap="round"/>
+  <path d="M463 289H506" stroke="#2F6A5F" stroke-width="5" stroke-linecap="round"/>
+
+  <g transform="rotate(36 394 289)">
+    <path d="M394 232L406 260H382L394 232Z" fill="#F5FFFC"/>
+    <path d="M385 252H403L409 263V330L394 342L379 330V263L385 252Z" fill="url(#accent)"/>
+    <path d="M379 302L356 327H373L387 311L379 302Z" fill="#96F2D7"/>
+    <path d="M409 302L432 327H415L401 311L409 302Z" fill="#96F2D7"/>
+    <path d="M390 261H398L399 320H389L390 261Z" fill="#C6FFF0" fill-opacity="0.35"/>
+    <path d="M387 335H401L408 349H380L387 335Z" fill="#E8FFFA"/>
+    <path d="M394 342L398 358H390L394 342Z" fill="url(#flare)"/>
+  </g>
+
+  <text x="548" y="248" fill="#A7F3D0" font-family="'Segoe UI', Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="4">AJAX INTERCEPTOR PRO</text>
+  <text x="548" y="304" fill="white" font-family="'Segoe UI', Arial, sans-serif" font-size="54" font-weight="800">Chrome 接口拦截调试插件</text>
+  <text x="548" y="352" fill="#C7D2DE" font-family="'Segoe UI', Arial, sans-serif" font-size="24">分组管理 · 命中统计 · 导入导出 · 弹窗 / DevTools 双模式</text>
+
+  <rect x="548" y="386" width="134" height="38" rx="19" fill="#112926" stroke="#23433E"/>
+  <text x="615" y="411" text-anchor="middle" fill="#D1FAE5" font-family="'Segoe UI', Arial, sans-serif" font-size="17" font-weight="700">MV3</text>
+
+  <rect x="696" y="386" width="154" height="38" rx="19" fill="#112926" stroke="#23433E"/>
+  <text x="773" y="411" text-anchor="middle" fill="#D1FAE5" font-family="'Segoe UI', Arial, sans-serif" font-size="17" font-weight="700">React + Vite</text>
+
+  <rect x="864" y="386" width="120" height="38" rx="19" fill="#112926" stroke="#23433E"/>
+  <text x="924" y="411" text-anchor="middle" fill="#D1FAE5" font-family="'Segoe UI', Arial, sans-serif" font-size="17" font-weight="700">AI 协作</text>
+</svg>
