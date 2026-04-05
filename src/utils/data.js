@@ -1,4 +1,4 @@
-import { genId } from './index';
+import { genId } from './index.js';
 
 export const DEFAULT_SETTINGS = Object.freeze({
   showHitCount: true,
@@ -169,4 +169,63 @@ export function getRulePreview(response, maxLength = 50) {
   }
 
   return preview.length > maxLength ? `${preview.slice(0, maxLength)}...` : preview;
+}
+
+function isRuleLike(item) {
+  return !!item && typeof item === 'object' && (
+    Object.prototype.hasOwnProperty.call(item, 'urlPattern') ||
+    Object.prototype.hasOwnProperty.call(item, 'method') ||
+    Object.prototype.hasOwnProperty.call(item, 'response')
+  );
+}
+
+function isGroupLike(item) {
+  return !!item && typeof item === 'object' && (
+    Array.isArray(item.rules) ||
+    Object.prototype.hasOwnProperty.call(item, 'name') ||
+    Object.prototype.hasOwnProperty.call(item, 'id')
+  );
+}
+
+function wrapRulesAsDefaultGroup(rules) {
+  return [
+    createDefaultGroup({
+      rules: Array.isArray(rules) ? rules : [],
+    }),
+  ];
+}
+
+export function parseImportedGroups(rawText) {
+  const sanitizedText = String(rawText || '').replace(/^\uFEFF/, '').trim();
+  const parsed = JSON.parse(sanitizedText);
+
+  if (Array.isArray(parsed)) {
+    if (parsed.every(isRuleLike)) {
+      return wrapRulesAsDefaultGroup(parsed);
+    }
+
+    if (parsed.every(isGroupLike)) {
+      return parsed;
+    }
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    if (Array.isArray(parsed.groups)) {
+      return parsed.groups;
+    }
+
+    if (parsed.data && Array.isArray(parsed.data.groups)) {
+      return parsed.data.groups;
+    }
+
+    if (Array.isArray(parsed.rules)) {
+      return wrapRulesAsDefaultGroup(parsed.rules);
+    }
+
+    if (isGroupLike(parsed) && Array.isArray(parsed.rules)) {
+      return [parsed];
+    }
+  }
+
+  throw new Error('invalid-import-format');
 }

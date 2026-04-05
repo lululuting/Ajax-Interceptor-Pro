@@ -13,7 +13,26 @@ import {
   ListIcon,
   RadarTargetIcon,
 } from './LegacyIcons';
-import { findRuleLocation, getRulePreview, moveRuleToGroup, normalizeGroups, reindexRules, sortGroups } from '../utils/data';
+import {
+  findRuleLocation,
+  getRulePreview,
+  moveRuleToGroup,
+  normalizeGroups,
+  parseImportedGroups,
+  reindexRules,
+  sortGroups,
+} from '../utils/data';
+
+function prepareGroupsForExport(groups = []) {
+  return (Array.isArray(groups) ? groups : []).filter(Boolean).map((group, index) => ({
+    ...group,
+    id: group.id || `group-${index + 1}`,
+    name: group.name || `分组 ${index + 1}`,
+    enabled: group.enabled !== false,
+    order: Number.isFinite(group.order) ? group.order : index,
+    rules: reindexRules(group.rules || []),
+  }));
+}
 
 export default function RuleList({
   groups,
@@ -221,7 +240,7 @@ export default function RuleList({
     const data = {
       version: '2.1.0',
       exportTime: new Date().toISOString(),
-      groups: normalizeGroups(exportGroups),
+      groups: prepareGroupsForExport(exportGroups),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -241,18 +260,14 @@ export default function RuleList({
 
     try {
       const text = await file.text();
-      const data = JSON.parse(text);
-      const groupsToImport = Array.isArray(data) ? data : data.groups;
-      if (!Array.isArray(groupsToImport)) {
-        throw new Error('invalid');
-      }
+      const groupsToImport = parseImportedGroups(text);
       setImportPayload(groupsToImport);
       setImportFileName(file.name);
       message.success(`已选择：${file.name}`);
     } catch (error) {
       setImportPayload(null);
       setImportFileName('');
-      message.error('文件格式错误');
+      message.error('文件格式错误，请导入插件导出的 JSON 或包含规则数据的 JSON');
     }
   };
 
@@ -263,6 +278,7 @@ export default function RuleList({
     }
 
     let nextGroups;
+    let nextHitCounts = hitCounts;
     if (importStrategy === 'overwrite') {
       nextGroups = normalizeGroups(
         importPayload.map((group) => ({
@@ -271,6 +287,7 @@ export default function RuleList({
           rules: (group.rules || []).map((rule) => ({ ...rule, id: genId() })),
         })),
       );
+      nextHitCounts = {};
     } else {
       const merged = normalizeGroups(groups).map((group) => ({
         ...group,
@@ -305,7 +322,10 @@ export default function RuleList({
       nextGroups = normalizeGroups(merged);
     }
 
-    await onSaveGroups(nextGroups);
+    await onSaveStoragePatch({
+      groups: nextGroups,
+      hitCounts: nextHitCounts,
+    });
     resetImportState();
     message.success('导入成功');
   };
