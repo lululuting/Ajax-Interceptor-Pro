@@ -8,6 +8,14 @@
   var loaderPromise = null;
   var monacoPromise = null;
 
+  function normalizeTheme(theme) {
+    return theme === 'dark' ? 'dark' : 'light';
+  }
+
+  function getMonacoTheme(theme) {
+    return normalizeTheme(theme) === 'dark' ? 'vs-dark' : 'vs';
+  }
+
   function getVsPath() {
     if (global.chrome && chrome.runtime && chrome.runtime.getURL) {
       return chrome.runtime.getURL('libs/vs');
@@ -99,15 +107,22 @@
     var style = document.createElement('style');
     style.id = '_monaco_container_style';
     style.textContent = [
-      '.monaco-editor-container{position:relative;width:100%;height:220px;border:1px solid #334155;border-radius:10px;overflow:hidden;background:#1e293b}',
+      '.monaco-editor-container{position:relative;width:100%;height:220px;border-radius:10px;overflow:hidden}',
+      '.monaco-editor-container[data-monaco-theme="light"]{border:1px solid #d0d7e2;background:#ffffff}',
+      '.monaco-editor-container[data-monaco-theme="dark"]{border:1px solid #334155;background:#1e293b}',
       '.monaco-editor-inner{width:100%;height:100%}',
       '.monaco-editor-container .monaco-editor, .monaco-editor-container .overflow-guard{border-radius:10px}',
-      '.monaco-editor-container .monaco-editor .margin{background:#0f172a!important}',
-      '.monaco-editor-container .monaco-editor .monaco-editor-background{background:#1e293b!important}',
+      '.monaco-editor-container[data-monaco-theme="light"] .monaco-editor .margin{background:#f8fafc!important}',
+      '.monaco-editor-container[data-monaco-theme="dark"] .monaco-editor .margin{background:#0f172a!important}',
+      '.monaco-editor-container[data-monaco-theme="light"] .monaco-editor .monaco-editor-background{background:#ffffff!important}',
+      '.monaco-editor-container[data-monaco-theme="dark"] .monaco-editor .monaco-editor-background{background:#1e293b!important}',
       '.monaco-editor-container .monaco-editor .inputarea.ime-input{background:transparent!important}',
-      '.monaco-editor-container .monaco-editor .cursor{background:#fff!important;border-color:#fff!important}',
-      '.monaco-editor-container .monaco-scrollable-element > .scrollbar > .slider{background:rgba(100,116,139,.7)!important}',
-      '.monaco-editor-container .suggest-widget{border:1px solid #334155!important;border-radius:8px!important;box-shadow:0 10px 30px rgba(0,0,0,.35)!important}',
+      '.monaco-editor-container[data-monaco-theme="light"] .monaco-editor .cursor{background:#0f172a!important;border-color:#0f172a!important}',
+      '.monaco-editor-container[data-monaco-theme="dark"] .monaco-editor .cursor{background:#fff!important;border-color:#fff!important}',
+      '.monaco-editor-container[data-monaco-theme="light"] .monaco-scrollable-element > .scrollbar > .slider{background:rgba(148,163,184,.7)!important}',
+      '.monaco-editor-container[data-monaco-theme="dark"] .monaco-scrollable-element > .scrollbar > .slider{background:rgba(100,116,139,.7)!important}',
+      '.monaco-editor-container[data-monaco-theme="light"] .suggest-widget{border:1px solid #d0d7e2!important;border-radius:8px!important;box-shadow:0 10px 30px rgba(15,23,42,.12)!important}',
+      '.monaco-editor-container[data-monaco-theme="dark"] .suggest-widget{border:1px solid #334155!important;border-radius:8px!important;box-shadow:0 10px 30px rgba(0,0,0,.35)!important}',
       '.monaco-editor-container .monaco-hover{border-radius:6px!important}'
     ].join('');
     document.head.appendChild(style);
@@ -121,8 +136,10 @@
     this._value = typeof options.value === 'string' ? options.value : '';
     this._onChange = typeof options.onChange === 'function' ? options.onChange : function () {};
     this._suspend = false;
+    this._theme = normalizeTheme(options.theme);
 
     injectCss();
+    this.container.setAttribute('data-monaco-theme', this._theme);
     this.container.innerHTML = '<div class="monaco-editor-inner"></div>';
     this.inner = this.container.querySelector('.monaco-editor-inner');
 
@@ -142,7 +159,7 @@
     this.editor = global.monaco.editor.create(this.inner, {
       value: this._value,
       language: 'json',
-      theme: 'vs-dark',
+      theme: getMonacoTheme(this._theme),
       automaticLayout: true,
       fontSize: 13,
       fontFamily: "'SF Mono','Monaco','Consolas',monospace",
@@ -178,6 +195,8 @@
       padding: { top: 10, bottom: 10 }
     });
 
+    global.monaco.editor.setTheme(getMonacoTheme(this._theme));
+
     this.editor.onDidChangeModelContent(function () {
       self._value = self.editor.getValue();
       if (!self._suspend) {
@@ -188,7 +207,8 @@
 
   MonacoEditor.prototype._fallback = function () {
     var textarea = document.createElement('textarea');
-    textarea.style.cssText = 'width:100%;height:100%;padding:10px;background:#1e293b;color:#e2e8f0;border:none;outline:none;resize:none;font:13px/20px SF Mono,Monaco,Consolas,monospace;';
+    textarea.style.cssText = 'width:100%;height:100%;padding:10px;border:none;outline:none;resize:none;font:13px/20px SF Mono,Monaco,Consolas,monospace;';
+    this._applyFallbackTheme(textarea);
     textarea.value = this._value;
     var self = this;
     textarea.addEventListener('input', function () {
@@ -223,6 +243,31 @@
 
   MonacoEditor.prototype.focus = function () {
     if (this.editor) this.editor.focus();
+  };
+
+  MonacoEditor.prototype._applyFallbackTheme = function (textarea) {
+    if (!textarea) return;
+    if (this._theme === 'dark') {
+      textarea.style.background = '#1e293b';
+      textarea.style.color = '#e2e8f0';
+      return;
+    }
+
+    textarea.style.background = '#ffffff';
+    textarea.style.color = '#0f172a';
+  };
+
+  MonacoEditor.prototype.setTheme = function (theme) {
+    this._theme = normalizeTheme(theme);
+    if (this.container) {
+      this.container.setAttribute('data-monaco-theme', this._theme);
+    }
+
+    if (this.editor && global.monaco && global.monaco.editor) {
+      global.monaco.editor.setTheme(getMonacoTheme(this._theme));
+    }
+
+    this._applyFallbackTheme(this.inner && this.inner.querySelector('textarea'));
   };
 
   MonacoEditor.prototype.format = function () {

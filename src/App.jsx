@@ -7,7 +7,28 @@ import { useStorage } from './hooks/useStorage';
 import { LogoIcon, SettingsIcon } from './components/LegacyIcons';
 import { normalizeGroups, sortGroups } from './utils/data';
 import { getRuntimeModeHint } from './utils/mode';
+import { normalizeThemeMode, resolveThemeMode } from './utils/theme';
 import './app.css';
+
+const LIGHT_THEME_TOKENS = {
+  colorBgBase: '#f9fafb',
+  colorBgContainer: '#ffffff',
+  colorBgElevated: '#ffffff',
+  colorBorder: '#e5e7eb',
+  colorText: '#1f2937',
+  colorTextSecondary: '#6b7280',
+  colorTextTertiary: '#9ca3af',
+};
+
+const DARK_THEME_TOKENS = {
+  colorBgBase: '#0b1220',
+  colorBgContainer: '#111827',
+  colorBgElevated: '#090f10',
+  colorBorder: '#253244',
+  colorText: '#e5edf6',
+  colorTextSecondary: '#9fb0c7',
+  colorTextTertiary: '#6f8197',
+};
 
 export default function App({ mode }) {
   const storage = useStorage();
@@ -15,10 +36,19 @@ export default function App({ mode }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [groupModal, setGroupModal] = useState({ open: false, mode: 'create', groupId: null });
+  const [resolvedTheme, setResolvedTheme] = useState(() => {
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      return resolveThemeMode('auto', window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+
+    return 'light';
+  });
   const [groupForm] = Form.useForm();
 
   const groups = sortGroups(storage.groups);
   const editingGroup = groupModal.groupId ? groups.find((group) => group.id === groupModal.groupId) : null;
+  const themeMode = normalizeThemeMode(storage.settings.themeMode);
+  const isDarkTheme = resolvedTheme === 'dark';
 
   useEffect(() => {
     if (currentGroupId !== 'all' && !groups.some((group) => group.id === currentGroupId)) {
@@ -38,14 +68,46 @@ export default function App({ mode }) {
   }, [editingGroup, groupForm, groupModal.open]);
 
   useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      setResolvedTheme(resolveThemeMode(themeMode, false));
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const syncTheme = () => {
+      setResolvedTheme(resolveThemeMode(themeMode, mediaQuery.matches));
+    };
+
+    syncTheme();
+
+    if (themeMode !== 'auto') {
+      return undefined;
+    }
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncTheme);
+      return () => mediaQuery.removeEventListener('change', syncTheme);
+    }
+
+    mediaQuery.addListener(syncTheme);
+    return () => mediaQuery.removeListener(syncTheme);
+  }, [themeMode]);
+
+  useEffect(() => {
     document.body.dataset.appMode = mode;
     document.documentElement.dataset.appMode = mode;
+    document.body.dataset.appTheme = resolvedTheme;
+    document.documentElement.dataset.appTheme = resolvedTheme;
+    document.documentElement.style.colorScheme = resolvedTheme;
 
     return () => {
       delete document.body.dataset.appMode;
       delete document.documentElement.dataset.appMode;
+      delete document.body.dataset.appTheme;
+      delete document.documentElement.dataset.appTheme;
+      document.documentElement.style.colorScheme = '';
     };
-  }, [mode]);
+  }, [mode, resolvedTheme]);
 
   if (storage.loading) return null;
 
@@ -112,16 +174,12 @@ export default function App({ mode }) {
   return (
     <ConfigProvider
       theme={{
-        algorithm: theme.defaultAlgorithm,
+        algorithm: isDarkTheme ? theme.darkAlgorithm : theme.defaultAlgorithm,
         token: {
           colorPrimary: '#10b981',
           borderRadius: 12,
           fontSizeBase: 13,
-          colorBgContainer: '#ffffff',
-          colorBorder: '#e5e7eb',
-          colorText: '#1f2937',
-          colorTextSecondary: '#6b7280',
-          colorTextTertiary: '#9ca3af',
+          ...(isDarkTheme ? DARK_THEME_TOKENS : LIGHT_THEME_TOKENS),
         },
       }}
     >
@@ -171,6 +229,7 @@ export default function App({ mode }) {
                 search={search}
                 hitCounts={storage.hitCounts}
                 settings={storage.settings}
+                resolvedTheme={resolvedTheme}
                 onSaveGroups={storage.saveGroups}
                 onSaveStoragePatch={storage.save}
                 onRequestRenameGroup={openRenameGroupModal}
@@ -182,6 +241,7 @@ export default function App({ mode }) {
       <SettingsModal
         open={settingsOpen}
         settings={storage.settings}
+        resolvedTheme={resolvedTheme}
         groups={groups}
         onClose={() => setSettingsOpen(false)}
         onSaveSettings={storage.saveSettings}

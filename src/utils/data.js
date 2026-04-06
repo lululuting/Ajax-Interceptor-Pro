@@ -3,6 +3,7 @@ import { genId } from './index.js';
 export const DEFAULT_SETTINGS = Object.freeze({
   showHitCount: true,
   openMode: 'popup',
+  themeMode: 'auto',
 });
 
 export function createDefaultGroup(overrides = {}) {

@@ -64,8 +64,8 @@ export function useStorage() {
   }, [save]);
 
   const saveSettings = useCallback(async (newSettings) => {
-    await save({ settings: newSettings });
-  }, [save]);
+    await save({ settings: Object.assign({}, DEFAULT_SETTINGS, settings, newSettings) });
+  }, [save, settings]);
 
   const saveHitCounts = useCallback(async (newHitCounts) => {
     await save({ hitCounts: newHitCounts });

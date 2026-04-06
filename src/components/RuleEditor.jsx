@@ -3,7 +3,7 @@ import { Form, Input, InputNumber, Modal, Select, Switch } from 'antd';
 
 const METHODS = ['*', 'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
 
-export default function RuleEditor({ open, rule, groupId, groups, onClose, onSave }) {
+export default function RuleEditor({ open, rule, groupId, groups, resolvedTheme, onClose, onSave }) {
   const [form] = Form.useForm();
   const editorContainerRef = useRef(null);
   const monacoRef = useRef(null);
@@ -33,6 +33,7 @@ export default function RuleEditor({ open, rule, groupId, groups, onClose, onSav
       monacoRef.current = new window.MonacoEditor(editorContainerRef.current, {
         value: '',
         language: 'json',
+        theme: resolvedTheme,
       });
     }
 
@@ -55,7 +56,15 @@ export default function RuleEditor({ open, rule, groupId, groups, onClose, onSav
         layoutTimerRef.current = null;
       }
     };
-  }, [open, rule]);
+  }, [open, resolvedTheme, rule]);
+
+  useEffect(() => {
+    if (!monacoRef.current) {
+      return;
+    }
+
+    monacoRef.current.setTheme?.(resolvedTheme);
+  }, [resolvedTheme]);
 
   useEffect(() => () => {
     if (layoutTimerRef.current) {

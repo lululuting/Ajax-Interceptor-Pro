@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Button, Modal, Radio, Switch, message } from "antd";
-import { DeleteIcon, ExportIcon } from "./LegacyIcons";
+import { DeleteIcon, ExportIcon, InfoIcon } from "./LegacyIcons";
 import { createDefaultGroup } from "../utils/data";
+import { normalizeThemeMode } from "../utils/theme";
 
 export default function SettingsModal({
   open,
   settings,
+  resolvedTheme,
   groups,
   onClose,
   onSaveSettings,
@@ -14,20 +16,24 @@ export default function SettingsModal({
 }) {
   const [showHitCount, setShowHitCount] = useState(true);
   const [openMode, setOpenMode] = useState("popup");
+  const [themeMode, setThemeMode] = useState("auto");
   const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     if (open) {
       setShowHitCount(settings.showHitCount !== false);
       setOpenMode(settings.openMode || "popup");
+      setThemeMode(normalizeThemeMode(settings.themeMode));
     }
   }, [open, settings]);
 
   const handleSave = async () => {
     const changedMode = openMode !== (settings.openMode || "popup");
     await onSaveSettings({
+      ...settings,
       showHitCount,
       openMode,
+      themeMode,
     });
     if (changedMode) {
       message.success(
@@ -65,20 +71,40 @@ export default function SettingsModal({
       >
         <div className="settings-section">
           <div className="settings-section-title">启动模式</div>
-          <Radio.Group
-            value={openMode}
-            onChange={(e) => setOpenMode(e.target.value)}
-            style={{ display: "flex", flexDirection: "column", gap: 10 }}
-          >
-            <Radio value="popup">弹窗模式</Radio>
-            <Radio value="devtools">DevTools 面板</Radio>
-          </Radio.Group>
-          <p className="settings-note">
-            💡 DevTools 模式：按 F12 打开开发者工具，在「Ajax拦截」标签页使用
-          </p>
+          <div className="settings-item settings-item-stack">
+            <Radio.Group
+              value={openMode}
+              onChange={(e) => setOpenMode(e.target.value)}
+              className="settings-choice-group"
+            >
+              <Radio value="popup">弹窗模式</Radio>
+              <Radio value="devtools">DevTools 面板</Radio>
+            </Radio.Group>
+            <p className="settings-note">
+              <InfoIcon />
+              <span>DevTools 模式：按 F12 打开开发者工具，在「Ajax拦截」标签页使用</span>
+            </p>
+          </div>
         </div>
         <div className="settings-section">
           <div className="settings-section-title">外观</div>
+          <div className="settings-item settings-item-stack">
+            <div>
+              <div className="settings-item-label">主题模式</div>
+              <div className="settings-item-desc">
+                默认自动跟随系统，当前生效为{resolvedTheme === "dark" ? "暗色" : "亮色"}
+              </div>
+            </div>
+            <Radio.Group
+              value={themeMode}
+              onChange={(e) => setThemeMode(e.target.value)}
+              className="settings-choice-group"
+            >
+              <Radio value="auto">自动</Radio>
+              <Radio value="light">浅色</Radio>
+              <Radio value="dark">暗色</Radio>
+            </Radio.Group>
+          </div>
           <div className="settings-item">
             <div>
               <div className="settings-item-label">显示命中计数</div>

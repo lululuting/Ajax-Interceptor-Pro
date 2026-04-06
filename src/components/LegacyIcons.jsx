@@ -130,6 +130,16 @@ export function SearchIcon() {
   );
 }
 
+export function InfoIcon() {
+  return (
+    <IconBase>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 10v6" />
+      <path d="M12 7h.01" />
+    </IconBase>
+  );
+}
+
 export function ListIcon() {
   return (
     <IconBase>

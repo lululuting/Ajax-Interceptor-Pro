@@ -40,6 +40,7 @@ export default function RuleList({
   search,
   hitCounts,
   settings,
+  resolvedTheme,
   onSaveGroups,
   onSaveStoragePatch,
   onRequestRenameGroup,
@@ -487,6 +488,7 @@ export default function RuleList({
         rule={editingRule}
         groupId={editingGroupId}
         groups={groups}
+        resolvedTheme={resolvedTheme}
         onSave={handleSaveRule}
         onClose={() => {
           setEditorOpen(false);
