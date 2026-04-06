@@ -1064,13 +1064,6 @@ input:checked + .toggle-slider:before {
   text-decoration: underline;
 }
 
-/* 状态码+启用开关 */
-.rule-options-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 8px 0;
-}
 .rule-status-wrap {
   display: flex;
   align-items: center;
@@ -1358,9 +1351,32 @@ input:checked + .toggle-slider:before {
 
 .rule-options-row {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
+  grid-template-columns: minmax(120px, 160px) auto;
   gap: 16px;
   align-items: end;
+}
+
+.rule-options-row .ant-form-item {
+  margin-bottom: 0;
+}
+
+.rule-enable-wrap {
+  justify-self: end;
+}
+
+.rule-enable-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  padding-bottom: 4px;
+}
+
+.rule-enable-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
 }
 
 .rule-editor-modal-wrap .ant-form-item-label > label {
@@ -1393,8 +1409,7 @@ input:checked + .toggle-slider:before {
 }
 
 @media (max-width: 720px) {
-  .rule-editor-grid,
-  .rule-options-row {
+  .rule-editor-grid {
     grid-template-columns: 1fr;
   }
 
