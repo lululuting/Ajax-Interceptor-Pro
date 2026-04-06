@@ -17,10 +17,10 @@ export function getModePresentation(mode) {
 
   return {
     mode: 'popup',
-    toolbarPopup: 'popup.entry.html',
-    toolbarMessage: '',
+    toolbarPopup: '',
+    toolbarMessage: '当前为小窗模式，请点击扩展图标打开',
     devtoolsFullUi: false,
-    devtoolsMessage: '当前为弹窗模式，请点击扩展图标使用',
+    devtoolsMessage: '当前为小窗模式，请点击扩展图标打开',
   };
 }
 
@@ -37,8 +37,8 @@ export function getRuntimeModeHint(runtimeMode, selectedMode) {
 
   if (runtime === 'devtools' && selected === 'popup') {
     return {
-      title: '当前为弹窗模式',
-      message: '请点击扩展图标，在弹窗中查看和编辑规则',
+      title: '当前为小窗模式',
+      message: '请点击扩展图标，在独立小窗口中查看和编辑规则',
     };
   }
 

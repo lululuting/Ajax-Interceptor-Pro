@@ -6,9 +6,9 @@ const { getModePresentation } = globalThis.ModeConfig;
 
 test('popup mode enables popup and disables devtools full UI', () => {
   const result = getModePresentation('popup');
-  assert.equal(result.toolbarPopup, 'popup/popup.html');
+  assert.equal(result.toolbarPopup, '');
   assert.equal(result.devtoolsFullUi, false);
-  assert.match(result.devtoolsMessage, /弹窗模式/);
+  assert.match(result.devtoolsMessage, /小窗模式/);
 });
 
 test('devtools mode enables hint popup and devtools full UI', () => {
@@ -20,7 +20,7 @@ test('devtools mode enables hint popup and devtools full UI', () => {
 
 test('unknown mode falls back to popup-safe defaults', () => {
   const result = getModePresentation('unknown');
-  assert.equal(result.toolbarPopup, 'popup/popup.html');
+  assert.equal(result.toolbarPopup, '');
   assert.equal(result.devtoolsFullUi, false);
 });
 
@@ -32,5 +32,5 @@ test('devtools mode points toolbar popup to mode hint page', () => {
 test('popup mode disables full devtools ui and provides message', () => {
   const result = getModePresentation('popup');
   assert.equal(result.devtoolsFullUi, false);
-  assert.match(result.devtoolsMessage, /点击扩展图标使用/);
+  assert.match(result.devtoolsMessage, /点击扩展图标打开/);
 });

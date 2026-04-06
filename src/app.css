@@ -79,10 +79,8 @@ body {
 }
 
 body[data-app-mode="popup"] {
-  /* Keep popup width under Chrome extension popup limits to avoid viewport clipping. */
-  --app-shell-width: 760px;
-  /* Chrome extension popups have a practical height ceiling near 600px. */
-  --app-shell-height: 600px;
+  --app-shell-width: 100vw;
+  --app-shell-height: 100vh;
 }
 
 body[data-app-mode="devtools"] {
@@ -929,7 +927,55 @@ input:checked + .toggle-slider:before {
 }
 
 .settings-modal-wrap .ant-modal-body {
+  padding: 20px 4px 0;
   padding-top: 20px !important;
+}
+
+.settings-modal-wrap .ant-modal {
+  max-width: min(620px, calc(100vw - 24px)) !important;
+}
+
+.settings-modal-wrap .ant-modal-content {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 32px);
+  overflow: hidden;
+}
+
+.settings-modal-wrap .ant-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  overflow-x: hidden;
+}
+
+.settings-modal-wrap .ant-modal-footer {
+  flex-shrink: 0;
+}
+
+.settings-scroll {
+  height: min(56vh, 620px);
+  min-height: 280px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 5px;
+}
+
+.settings-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.settings-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text3);
 }
 
 .modal-footer {
@@ -1319,15 +1365,30 @@ input:checked + .toggle-slider:before {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
 }
 
 .settings-choice-group .ant-radio-wrapper {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  box-sizing: border-box;
   margin-inline-start: 0 !important;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg2);
   transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.settings-choice-group .ant-radio {
+  flex-shrink: 0;
+}
+
+.settings-choice-group .ant-radio + * {
+  flex: 1;
+  min-width: 0;
 }
 
 .settings-choice-group .ant-radio-wrapper:hover {

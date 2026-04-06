@@ -40,7 +40,6 @@ const manifest = {
     all_frames: true,
   }],
   action: {
-    default_popup: 'popup.entry.html',
     default_icon: { 16: 'icons/icon16.png', 48: 'icons/icon48.png', 128: 'icons/icon128.png' },
   },
   icons: { 16: 'icons/icon16.png', 48: 'icons/icon48.png', 128: 'icons/icon128.png' },

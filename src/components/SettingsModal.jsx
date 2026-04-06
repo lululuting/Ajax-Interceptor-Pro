@@ -39,7 +39,7 @@ export default function SettingsModal({
       message.success(
         openMode === "devtools"
           ? "已切换到 DevTools 模式，请按 F12 → Ajax拦截 查看"
-          : "已切换到弹窗模式，请点击扩展图标查看",
+          : "已切换到小窗模式，请点击扩展图标打开",
       );
     }
     onClose();
@@ -69,108 +69,110 @@ export default function SettingsModal({
         maskClosable
         centered
       >
-        <div className="settings-section">
-          <div className="settings-section-title">启动模式</div>
-          <div className="settings-item settings-item-stack">
-            <Radio.Group
-              value={openMode}
-              onChange={(e) => setOpenMode(e.target.value)}
-              className="settings-choice-group"
-            >
-              <Radio value="popup">弹窗模式</Radio>
-              <Radio value="devtools">DevTools 面板</Radio>
-            </Radio.Group>
-            <p className="settings-note">
-              <InfoIcon />
-              <span>DevTools 模式：按 F12 打开开发者工具，在「Ajax拦截」标签页使用</span>
-            </p>
+        <div className="settings-scroll">
+          <div className="settings-section">
+            <div className="settings-section-title">启动模式</div>
+            <div className="settings-item settings-item-stack">
+              <Radio.Group
+                value={openMode}
+                onChange={(e) => setOpenMode(e.target.value)}
+                className="settings-choice-group"
+              >
+                <Radio value="popup">小窗模式</Radio>
+                <Radio value="devtools">DevTools 面板</Radio>
+              </Radio.Group>
+              <p className="settings-note">
+                <InfoIcon />
+                <span>DevTools 模式：按 F12 打开开发者工具，在「Ajax拦截」标签页使用</span>
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="settings-section">
-          <div className="settings-section-title">外观</div>
-          <div className="settings-item settings-item-stack">
-            <div>
-              <div className="settings-item-label">主题模式</div>
-              <div className="settings-item-desc">
-                默认自动跟随系统，当前生效为{resolvedTheme === "dark" ? "暗色" : "亮色"}
+          <div className="settings-section">
+            <div className="settings-section-title">外观</div>
+            <div className="settings-item settings-item-stack">
+              <div>
+                <div className="settings-item-label">主题模式</div>
+                <div className="settings-item-desc">
+                  默认自动跟随系统，当前生效为{resolvedTheme === "dark" ? "暗色" : "亮色"}
+                </div>
               </div>
-            </div>
-            <Radio.Group
-              value={themeMode}
-              onChange={(e) => setThemeMode(e.target.value)}
-              className="settings-choice-group"
-            >
-              <Radio value="auto">自动</Radio>
-              <Radio value="light">浅色</Radio>
-              <Radio value="dark">暗色</Radio>
-            </Radio.Group>
-          </div>
-          <div className="settings-item">
-            <div>
-              <div className="settings-item-label">显示命中计数</div>
-            </div>
-            <Switch
-              checked={showHitCount}
-              onChange={(checked) => setShowHitCount(checked)}
-            />
-          </div>
-        </div>
-        <div className="settings-section">
-          <div className="settings-section-title">数据</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <Button
-              icon={<ExportIcon />}
-              onClick={() => {
-                const data = { groups, settings };
-                const blob = new Blob([JSON.stringify(data, null, 2)], {
-                  type: "application/json",
-                });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "ajax-interceptor-config.json";
-                a.click();
-                URL.revokeObjectURL(url);
-                message.success("配置已导出");
-              }}
-            >
-              导出配置
-            </Button>
-            <Button
-              danger
-              icon={<DeleteIcon />}
-              onClick={() => setShowConfirm(true)}
-            >
-              清除数据
-            </Button>
-          </div>
-        </div>
-        <div className="settings-section">
-          <div className="settings-section-title">关于</div>
-          <div className="settings-about">
-            <div className="settings-item settings-info-block">
-              版本：{__APP_VERSION__}
-              <br />
-              项目地址：
-              <a
-                href="https://github.com/lululuting/Ajax-Interceptor-Pro"
-                target="_blank"
-                rel="noreferrer"
-                className="settings-link"
+              <Radio.Group
+                value={themeMode}
+                onChange={(e) => setThemeMode(e.target.value)}
+                className="settings-choice-group"
               >
-                Ajax Interceptor Pro
-              </a>
-              <br />
-              基于
-              <a
-                href="https://github.com/YGYOOO/ajax-interceptor"
-                target="_blank"
-                rel="noreferrer"
-                className="settings-link"
+                <Radio value="auto">自动</Radio>
+                <Radio value="light">浅色</Radio>
+                <Radio value="dark">暗色</Radio>
+              </Radio.Group>
+            </div>
+            <div className="settings-item">
+              <div>
+                <div className="settings-item-label">显示命中计数</div>
+              </div>
+              <Switch
+                checked={showHitCount}
+                onChange={(checked) => setShowHitCount(checked)}
+              />
+            </div>
+          </div>
+          <div className="settings-section">
+            <div className="settings-section-title">数据</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button
+                icon={<ExportIcon />}
+                onClick={() => {
+                  const data = { groups, settings };
+                  const blob = new Blob([JSON.stringify(data, null, 2)], {
+                    type: "application/json",
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "ajax-interceptor-config.json";
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  message.success("配置已导出");
+                }}
               >
-                Ajax Interceptor
-              </a>
-              扩展，全程 AI 生成。
+                导出配置
+              </Button>
+              <Button
+                danger
+                icon={<DeleteIcon />}
+                onClick={() => setShowConfirm(true)}
+              >
+                清除数据
+              </Button>
+            </div>
+          </div>
+          <div className="settings-section">
+            <div className="settings-section-title">关于</div>
+            <div className="settings-about">
+              <div className="settings-item settings-info-block">
+                版本：{__APP_VERSION__}
+                <br />
+                项目地址：
+                <a
+                  href="https://github.com/lululuting/Ajax-Interceptor-Pro"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="settings-link"
+                >
+                  Ajax Interceptor Pro
+                </a>
+                <br />
+                基于
+                <a
+                  href="https://github.com/YGYOOO/ajax-interceptor"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="settings-link"
+                >
+                  Ajax Interceptor
+                </a>
+                扩展，全程 AI 生成。
+              </div>
             </div>
           </div>
         </div>

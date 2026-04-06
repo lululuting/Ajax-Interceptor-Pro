@@ -25,10 +25,10 @@
 
     return {
       mode: 'popup',
-      toolbarPopup: 'popup/popup.html',
-      toolbarMessage: '',
+      toolbarPopup: '',
+      toolbarMessage: '当前为小窗模式，请点击扩展图标打开',
       devtoolsFullUi: false,
-      devtoolsMessage: '当前为弹窗模式，请点击扩展图标使用'
+      devtoolsMessage: '当前为小窗模式，请点击扩展图标打开'
     };
   }
 
