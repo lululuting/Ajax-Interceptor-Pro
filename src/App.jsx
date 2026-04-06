@@ -68,6 +68,7 @@ export default function App({ mode }) {
   }, [editingGroup, groupForm, groupModal.open]);
 
   useEffect(() => {
+    // 主题可固定，也可跟随系统，所以这里需要同时监听设置项和 media query。
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
       setResolvedTheme(resolveThemeMode(themeMode, false));
       return undefined;
@@ -94,6 +95,7 @@ export default function App({ mode }) {
   }, [themeMode]);
 
   useEffect(() => {
+    // 统一把运行模式和生效主题写到根节点，CSS 变量和独立页面都从这里读状态。
     document.body.dataset.appMode = mode;
     document.documentElement.dataset.appMode = mode;
     document.body.dataset.appTheme = resolvedTheme;

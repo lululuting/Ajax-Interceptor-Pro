@@ -64,6 +64,7 @@ export function useStorage() {
   }, [save]);
 
   const saveSettings = useCallback(async (newSettings) => {
+    // 设置项会持续扩展，这里始终按默认值 + 当前值 + 新补丁合并，避免互相覆盖。
     await save({ settings: Object.assign({}, DEFAULT_SETTINGS, settings, newSettings) });
   }, [save, settings]);
 

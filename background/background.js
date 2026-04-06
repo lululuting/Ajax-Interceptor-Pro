@@ -37,6 +37,7 @@ async function hydrateStateCache(force) {
 }
 
 function scheduleHitCountsFlush() {
+  // 命中计数更新很频繁，集中写回可以减少 storage 抖动。
   hitCountsDirty = true;
 
   if (hitCountFlushTimer) {
@@ -128,6 +129,7 @@ async function getPopupWindowBounds() {
 }
 
 async function openPopupWindow() {
+  // 小窗模式优先复用已有窗口，避免每点一次图标就新开一个实例。
   var currentPopupWindowId = await readPopupWindowId();
 
   if (typeof currentPopupWindowId === 'number') {
