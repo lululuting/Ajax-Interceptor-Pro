@@ -1,0 +1,46 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="16" y1="12" x2="114" y2="118" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B3C3A"/>
+      <stop offset="1" stop-color="#139A8B"/>
+    </linearGradient>
+    <linearGradient id="missile" x1="0" y1="18" x2="0" y2="92" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7FFFD"/>
+      <stop offset="1" stop-color="#BFF7E9"/>
+    </linearGradient>
+    <linearGradient id="flare" x1="64" y1="82" x2="64" y2="104" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE082"/>
+      <stop offset="1" stop-color="#FF8A3D"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="128" height="128" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#062E2D" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <rect x="4" y="4" width="120" height="120" rx="24" fill="url(#bg)"/>
+
+    <circle cx="64" cy="64" r="44" stroke="#B9FFF1" stroke-opacity="0.16" stroke-width="6"/>
+    <circle cx="64" cy="64" r="31" stroke="#B9FFF1" stroke-opacity="0.24" stroke-width="5"/>
+    <path d="M64 14V28" stroke="#D9FFF8" stroke-opacity="0.36" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M64 100V114" stroke="#D9FFF8" stroke-opacity="0.36" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M14 64H28" stroke="#D9FFF8" stroke-opacity="0.36" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M100 64H114" stroke="#D9FFF8" stroke-opacity="0.36" stroke-width="4.5" stroke-linecap="round"/>
+
+    <g transform="rotate(45 64 64)">
+      <path d="M64 4L73 24H55L64 4Z" fill="url(#missile)"/>
+      <path d="M57 19H71L76 28V78L64 88L52 78V28L57 19Z" fill="url(#missile)"/>
+      <path d="M52 56L33 78H48L58 63L52 56Z" fill="#C8FFF3"/>
+      <path d="M76 56L95 78H80L70 63L76 56Z" fill="#C8FFF3"/>
+      <path d="M60 26H68L69 70H59L60 26Z" fill="#139A8B" fill-opacity="0.32"/>
+      <path d="M58 82H70L77 99H51L58 82Z" fill="#E9FFFA"/>
+      <path d="M64 88L68 113H60L64 88Z" fill="url(#flare)"/>
+    </g>
+
+    <circle cx="95" cy="33" r="6" fill="#D8FFF8" fill-opacity="0.98"/>
+    <path d="M95 22V28" stroke="#D8FFF8" stroke-width="3" stroke-linecap="round"/>
+    <path d="M95 38V44" stroke="#D8FFF8" stroke-width="3" stroke-linecap="round"/>
+    <path d="M84 33H90" stroke="#D8FFF8" stroke-width="3" stroke-linecap="round"/>
+    <path d="M100 33H106" stroke="#D8FFF8" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -1,0 +1,89 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 360px;
+  min-height: 260px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background:
+    radial-gradient(circle at top right, rgba(16, 185, 129, 0.18), transparent 34%),
+    linear-gradient(180deg, #f6fbf9 0%, #edf7f3 100%);
+  color: #0f172a;
+}
+
+.mode-hint-screen {
+  min-height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+.mode-hint-card {
+  width: 100%;
+  max-width: 324px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(245, 255, 250, 0.98));
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  border-radius: 22px;
+  box-shadow:
+    0 18px 44px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  padding: 22px 20px 18px;
+  text-align: center;
+}
+
+.mode-hint-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #047857;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.mode-hint-icon-wrap {
+  width: 58px;
+  height: 58px;
+  margin: 16px auto 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #0f766e, #10b981);
+  box-shadow: 0 14px 28px rgba(16, 185, 129, 0.22);
+}
+
+.mode-hint-icon {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+
+.mode-hint-card h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1.35;
+}
+
+.mode-hint-card p {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #475569;
+}
+
+.mode-hint-note {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(15, 118, 110, 0.06);
+  border: 1px solid rgba(15, 118, 110, 0.1);
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 1.65;
+}
