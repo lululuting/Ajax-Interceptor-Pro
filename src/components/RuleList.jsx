@@ -610,7 +610,6 @@ function RuleItem({
         </div>
         <div className="rule-meta">
           {showGroupName && rule.groupName ? <span className="rule-group-label">{rule.groupName}</span> : null}
-          {groupDisabled ? <span className="rule-group-state">分组已禁用</span> : null}
           <code className="rule-preview">{preview}</code>
         </div>
       </div>

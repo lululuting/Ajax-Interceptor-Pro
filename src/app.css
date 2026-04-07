@@ -521,7 +521,7 @@ input:checked + .toggle-slider:before {
 }
 
 .rule-item.group-disabled:not(.disabled) {
-  opacity: 0.78;
+  opacity: 0.5;
 }
 
 .rule-item.dragging {
@@ -1190,15 +1190,6 @@ input:checked + .toggle-slider:before {
   font-size: 11px;
   color: var(--text3);
   background: var(--bg3);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
-.rule-group-state {
-  flex-shrink: 0;
-  font-size: 11px;
-  color: #92400e;
-  background: #fef3c7;
   border-radius: 999px;
   padding: 2px 8px;
 }
