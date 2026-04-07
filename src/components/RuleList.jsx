@@ -72,6 +72,7 @@ export default function RuleList({
   const sortedGroups = sortGroups(groups);
   const keyword = search.trim().toLowerCase();
   const visibleRules = [];
+  const liveEditingRule = editingRule ? (findRuleLocation(groups, editingRule.id)?.rule || editingRule) : null;
 
   if (currentGroupId === 'all') {
     sortedGroups.forEach((group) => {
@@ -485,7 +486,7 @@ export default function RuleList({
 
       <RuleEditor
         open={editorOpen}
-        rule={editingRule}
+        rule={liveEditingRule}
         groupId={editingGroupId}
         groups={groups}
         resolvedTheme={resolvedTheme}
@@ -578,6 +579,7 @@ function RuleItem({
   onDragEnd,
 }) {
   const enabled = rule.enabled !== false;
+  const groupDisabled = rule.groupEnabled === false;
   const method = rule.method || 'GET';
   const methodClass = String(method === '*' ? 'all' : method).toLowerCase();
   const preview = getRulePreview(rule.response, 50);
@@ -593,7 +595,7 @@ function RuleItem({
 
   return (
     <div
-      className={`rule-item${!enabled || rule.groupEnabled === false ? ' disabled' : ''}`}
+      className={`rule-item${!enabled ? ' disabled' : ''}${groupDisabled ? ' group-disabled' : ''}`}
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
@@ -608,6 +610,7 @@ function RuleItem({
         </div>
         <div className="rule-meta">
           {showGroupName && rule.groupName ? <span className="rule-group-label">{rule.groupName}</span> : null}
+          {groupDisabled ? <span className="rule-group-state">分组已禁用</span> : null}
           <code className="rule-preview">{preview}</code>
         </div>
       </div>

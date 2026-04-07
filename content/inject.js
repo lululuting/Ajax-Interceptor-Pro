@@ -1,7 +1,19 @@
 (function() {
+  if (window.__ajaxInterceptorProInjected) {
+    return;
+  }
+
+  Object.defineProperty(window, '__ajaxInterceptorProInjected', {
+    value: true,
+    configurable: false,
+    enumerable: false,
+    writable: false,
+  });
+
   var originalXHROpen = XMLHttpRequest.prototype.open;
   var originalXHRSend = XMLHttpRequest.prototype.send;
   var originalFetch = window.fetch;
+  var REQUEST_TIMEOUT_MS = 1200;
 
   function normalizeMethod(method) {
     return String(method || 'GET').toUpperCase();
@@ -16,45 +28,50 @@
   }
 
   function requestIntercept(url, method) {
-    return new Promise(function(resolve) {
-      var requestId = 'intercept-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-      var finished = false;
-      var timeoutId = null;
+    return requestInterceptDirect(normalizeUrl(url), normalizeMethod(method));
+  }
 
-      function cleanup() {
-        window.removeEventListener('message', onInterceptorMessage);
-        if (timeoutId) {
-          window.clearTimeout(timeoutId);
-          timeoutId = null;
-        }
+  function requestInterceptDirect(url, method) {
+    return new Promise(function(resolve, reject) {
+      var runtime = typeof chrome !== 'undefined' ? chrome.runtime : null;
+      if (
+        !runtime ||
+        typeof runtime.sendMessage !== 'function'
+      ) {
+        reject(new Error('runtime-unavailable'));
+        return;
       }
 
-      function finish(response) {
+      var finished = false;
+      var timeoutId = window.setTimeout(function() {
         if (finished) return;
         finished = true;
-        cleanup();
-        resolve(response || null);
+        reject(new Error('runtime-timeout'));
+      }, REQUEST_TIMEOUT_MS);
+
+      try {
+        runtime.sendMessage({
+          type: 'GET_RESPONSE',
+          url: url,
+          method: method
+        }, function(response) {
+          if (finished) return;
+          finished = true;
+          window.clearTimeout(timeoutId);
+
+          if (runtime.lastError) {
+            reject(new Error(runtime.lastError.message || 'runtime-error'));
+            return;
+          }
+
+          resolve(response || null);
+        });
+      } catch (error) {
+        if (finished) return;
+        finished = true;
+        window.clearTimeout(timeoutId);
+        reject(error);
       }
-
-      function onInterceptorMessage(event) {
-        if (event.source !== window) return;
-        if (!event.data || event.data.type !== 'AJAX_INTERCEPTOR_RESPONSE') return;
-        if (event.data.requestId !== requestId) return;
-
-        finish(event.data.response);
-      }
-
-      window.addEventListener('message', onInterceptorMessage);
-      timeoutId = window.setTimeout(function() {
-        finish(null);
-      }, 1200);
-
-      window.postMessage({
-        type: 'AJAX_INTERCEPTOR_REQUEST',
-        requestId: requestId,
-        url: normalizeUrl(url),
-        method: normalizeMethod(method)
-      }, '*');
     });
   }
 
@@ -150,7 +167,7 @@
     return originalXHROpen.apply(this, arguments);
   };
 
-  XMLHttpRequest.prototype.send = function(body) {
+  XMLHttpRequest.prototype.send = function() {
     var xhr = this;
     var url = xhr._interceptUrl || '';
     var method = xhr._interceptMethod || 'GET';
@@ -190,6 +207,4 @@
         return originalFetch(input, options);
       });
   };
-
-  console.log('[Ajax Interceptor Pro] Injected successfully');
 })();

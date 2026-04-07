@@ -194,6 +194,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
 async function handleInterceptRequest(url, method) {
   var data = await hydrateStateCache();
+  var requestMethod = normalizeMethod(method);
 
   if (data.globalEnabled === false) return null;
 
@@ -206,9 +207,10 @@ async function handleInterceptRequest(url, method) {
     var rules = group.rules || [];
     for (var j = 0; j < rules.length; j++) {
       var rule = rules[j];
+      var ruleMethod = normalizeMethod(rule.method);
       if (!rule.enabled) continue;
 
-      if (rule.method && rule.method !== '*' && rule.method !== method) continue;
+      if (rule.method && ruleMethod !== '*' && ruleMethod !== requestMethod) continue;
 
       if (matchUrl(url, rule.urlPattern)) {
         stateCache.hitCounts[rule.id] = (stateCache.hitCounts[rule.id] || 0) + 1;
@@ -224,14 +226,43 @@ async function handleInterceptRequest(url, method) {
   return null;
 }
 
+function normalizeMethod(method) {
+  return String(method || 'GET').toUpperCase();
+}
+
+function getUrlMatchCandidates(url) {
+  var value = String(url || '');
+  var candidates = [value];
+
+  try {
+    var parsed = new URL(value);
+    candidates.push(parsed.href);
+    candidates.push(parsed.pathname + parsed.search + parsed.hash);
+    candidates.push(parsed.pathname + parsed.search);
+    candidates.push(parsed.pathname);
+    candidates.push(parsed.host + parsed.pathname + parsed.search);
+  } catch (error) {}
+
+  return candidates.filter(function(candidate, index, list) {
+    return !!candidate && list.indexOf(candidate) === index;
+  });
+}
+
 function matchUrl(url, pattern) {
   if (!pattern) return false;
-  var regexPattern = pattern.replace(/\*/g, '.*').replace(/\?/g, '.');
-  try {
-    return new RegExp(regexPattern, 'i').test(url);
-  } catch (e) {
-    return url.indexOf(pattern) !== -1;
-  }
+  var text = String(pattern || '').trim();
+  if (!text) return false;
+
+  var regexPattern = '^' + text
+    .replace(/[|\\{}()[\]^$+?.]/g, '\\$&')
+    .replace(/\*/g, '.*')
+    .replace(/\\\?/g, '.') + '$';
+  var matcher = new RegExp(regexPattern, 'i');
+  var candidates = getUrlMatchCandidates(url);
+
+  return candidates.some(function(candidate) {
+    return matcher.test(candidate);
+  });
 }
 
 chrome.runtime.onInstalled.addListener(function() {

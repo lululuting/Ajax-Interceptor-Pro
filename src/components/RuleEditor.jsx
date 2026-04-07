@@ -163,11 +163,13 @@ export default function RuleEditor({ open, rule, groupId, groups, resolvedTheme,
             >
               <InputNumber min={100} max={599} controls={false} />
             </Form.Item>
-            <Form.Item name="enabled" valuePropName="checked" className="rule-enable-wrap">
-              <div className="rule-enable-inline">
-                <span className="rule-enable-label">是否启用</span>
-                <Switch checkedChildren="启用" unCheckedChildren="禁用" />
-              </div>
+            <Form.Item
+              label="是否启用"
+              name="enabled"
+              valuePropName="checked"
+              className="rule-enable-wrap"
+            >
+              <Switch checkedChildren="启用" unCheckedChildren="禁用" />
             </Form.Item>
           </div>
         </Form>

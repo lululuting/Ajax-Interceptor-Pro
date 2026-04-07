@@ -17,7 +17,6 @@ function copy(src, dest) {
 copy(resolve(root, 'icons'), resolve(dist, 'icons'));
 copy(resolve(root, 'libs'), resolve(dist, 'libs'));
 copy(resolve(root, 'background/background.js'), resolve(dist, 'background/background.js'));
-copy(resolve(root, 'content/content.js'), resolve(dist, 'content/content.js'));
 copy(resolve(root, 'content/inject.js'), resolve(dist, 'content/inject.js'));
 copy(resolve(root, 'devtools.html'), resolve(dist, 'devtools.html'));
 copy(resolve(root, 'devtools.js'), resolve(dist, 'devtools.js'));
@@ -33,18 +32,20 @@ const manifest = {
   host_permissions: ['<all_urls>'],
   devtools_page: 'devtools.html',
   background: { service_worker: 'background/background.js' },
-  content_scripts: [{
-    matches: ['<all_urls>'],
-    js: ['content/content.js'],
-    run_at: 'document_start',
-    all_frames: true,
-  }],
+  content_scripts: [
+    {
+      matches: ['<all_urls>'],
+      js: ['content/inject.js'],
+      run_at: 'document_start',
+      all_frames: true,
+      world: 'MAIN',
+    },
+  ],
   action: {
     default_icon: { 16: 'icons/icon16.png', 48: 'icons/icon48.png', 128: 'icons/icon128.png' },
   },
   icons: { 16: 'icons/icon16.png', 48: 'icons/icon48.png', 128: 'icons/icon128.png' },
   web_accessible_resources: [
-    { resources: ['content/inject.js'], matches: ['<all_urls>'] },
     { resources: ['libs/vs/**', 'libs/monaco-editor.js'], matches: ['chrome-extension://*/*'] },
   ],
 };
