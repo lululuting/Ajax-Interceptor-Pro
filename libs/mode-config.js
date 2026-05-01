@@ -11,6 +11,10 @@
     return mode === 'devtools' ? 'devtools' : 'popup';
   }
 
+  function getInterceptScopeLabel(mode) {
+    return normalizeMode(mode) === 'devtools' ? '当前页拦截' : '全局拦截';
+  }
+
   function getModePresentation(mode) {
     var normalized = normalizeMode(mode);
     if (normalized === 'devtools') {
@@ -33,6 +37,7 @@
   }
 
   return {
+    getInterceptScopeLabel: getInterceptScopeLabel,
     normalizeMode: normalizeMode,
     getModePresentation: getModePresentation
   };

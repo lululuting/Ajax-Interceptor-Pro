@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import '../libs/mode-config.js';
 
-const { getModePresentation } = globalThis.ModeConfig;
+const { getInterceptScopeLabel, getModePresentation } = globalThis.ModeConfig;
 
 test('popup mode enables popup and disables devtools full UI', () => {
   const result = getModePresentation('popup');
@@ -33,4 +33,10 @@ test('popup mode disables full devtools ui and provides message', () => {
   const result = getModePresentation('popup');
   assert.equal(result.devtoolsFullUi, false);
   assert.match(result.devtoolsMessage, /点击扩展图标打开/);
+});
+
+test('scope label follows runtime mode', () => {
+  assert.equal(getInterceptScopeLabel('popup'), '全局拦截');
+  assert.equal(getInterceptScopeLabel('devtools'), '当前页拦截');
+  assert.equal(getInterceptScopeLabel('unknown'), '全局拦截');
 });

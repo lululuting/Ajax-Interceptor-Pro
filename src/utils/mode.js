@@ -2,6 +2,10 @@ export function normalizeMode(mode) {
   return mode === 'devtools' ? 'devtools' : 'popup';
 }
 
+export function getInterceptScopeLabel(mode) {
+  return normalizeMode(mode) === 'devtools' ? '当前页拦截' : '全局拦截';
+}
+
 export function getModePresentation(mode) {
   const normalized = normalizeMode(mode);
 

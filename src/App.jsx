@@ -6,7 +6,8 @@ import SettingsModal from './components/SettingsModal';
 import { useStorage } from './hooks/useStorage';
 import { LogoIcon, SettingsIcon } from './components/LegacyIcons';
 import { normalizeGroups, sortGroups } from './utils/data';
-import { getRuntimeModeHint } from './utils/mode';
+import { buildDisplayHitCounts, removeRuleHitCounts } from './utils/hitCounts';
+import { getInterceptScopeLabel, getRuntimeModeHint } from './utils/mode';
 import { normalizeThemeMode, resolveThemeMode } from './utils/theme';
 import './app.css';
 
@@ -30,7 +31,7 @@ const DARK_THEME_TOKENS = {
   colorTextTertiary: '#6f8197',
 };
 
-export default function App({ mode }) {
+export default function App({ mode, contextTabId = null }) {
   const storage = useStorage();
   const [currentGroupId, setCurrentGroupId] = useState('all');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -46,6 +47,8 @@ export default function App({ mode }) {
   const [groupForm] = Form.useForm();
 
   const groups = sortGroups(storage.groups);
+  const displayHitCounts = buildDisplayHitCounts(storage.hitCounts, mode, contextTabId);
+  const interceptScopeLabel = getInterceptScopeLabel(mode);
   const editingGroup = groupModal.groupId ? groups.find((group) => group.id === groupModal.groupId) : null;
   const themeMode = normalizeThemeMode(storage.settings.themeMode);
   const isDarkTheme = resolvedTheme === 'dark';
@@ -154,10 +157,10 @@ export default function App({ mode }) {
       centered: true,
       onOk: async () => {
         const nextGroups = normalizeGroups(groups.filter((group) => group.id !== groupId));
-        const nextHitCounts = { ...storage.hitCounts };
+        let nextHitCounts = storage.hitCounts;
 
         for (const rule of targetGroup.rules || []) {
-          delete nextHitCounts[rule.id];
+          nextHitCounts = removeRuleHitCounts(nextHitCounts, rule.id);
         }
 
         if (currentGroupId === groupId) {
@@ -206,6 +209,7 @@ export default function App({ mode }) {
               <div className="header-title">
                 <span className="logo"><LogoIcon /></span>
                 <span>Ajax Interceptor Pro</span>
+                <span className="header-scope-badge">{interceptScopeLabel}</span>
               </div>
               <div className="header-actions">
                 <Switch checked={storage.globalEnabled} onChange={storage.saveGlobalEnabled} title="全局开关" />
@@ -230,6 +234,7 @@ export default function App({ mode }) {
                 currentGroupId={currentGroupId}
                 search={search}
                 hitCounts={storage.hitCounts}
+                displayHitCounts={displayHitCounts}
                 settings={storage.settings}
                 resolvedTheme={resolvedTheme}
                 onSaveGroups={storage.saveGroups}

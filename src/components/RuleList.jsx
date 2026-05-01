@@ -22,6 +22,7 @@ import {
   reindexRules,
   sortGroups,
 } from '../utils/data';
+import { removeRuleHitCounts } from '../utils/hitCounts';
 
 function prepareGroupsForExport(groups = []) {
   return (Array.isArray(groups) ? groups : []).filter(Boolean).map((group, index) => ({
@@ -39,6 +40,7 @@ export default function RuleList({
   currentGroupId,
   search,
   hitCounts,
+  displayHitCounts,
   settings,
   resolvedTheme,
   onSaveGroups,
@@ -135,8 +137,7 @@ export default function RuleList({
           : group,
       ),
     );
-    const nextHitCounts = { ...hitCounts };
-    delete nextHitCounts[ruleId];
+    const nextHitCounts = removeRuleHitCounts(hitCounts, ruleId);
 
     await onSaveStoragePatch({
       groups: nextGroups,
@@ -456,7 +457,7 @@ export default function RuleList({
                   key={rule.id}
                   rule={rule}
                   groupId={rule.groupId}
-                  hitCount={hitCounts?.[rule.id] || 0}
+                  hitCount={displayHitCounts?.[rule.id] || 0}
                   showHitCount={settings?.showHitCount !== false}
                   showGroupName={currentGroupId === 'all'}
                   onEdit={() => handleEditRule(rule, rule.groupId)}

@@ -70,11 +70,27 @@ const devtoolsHtml = `<!DOCTYPE html>
 writeFileSync(resolve(dist, 'devtools.html'), devtoolsHtml);
 
 // Update devtools.js to create panel pointing to src/devtools_panel.html
-const devtoolsJs = `try {
+const devtoolsJs = `var devtoolsScopePort = null;
+
+try {
+  var inspectedTabId = chrome.devtools && chrome.devtools.inspectedWindow
+    ? chrome.devtools.inspectedWindow.tabId
+    : null;
+  var panelUrl = 'devtools_panel.entry.html';
+
+  if (typeof inspectedTabId === 'number') {
+    panelUrl += '?tabId=' + inspectedTabId;
+    devtoolsScopePort = chrome.runtime.connect({ name: 'AJAX_INTERCEPTOR_DEVTOOLS' });
+    devtoolsScopePort.postMessage({
+      type: 'DEVTOOLS_PANEL_OPENED',
+      tabId: inspectedTabId
+    });
+  }
+
   chrome.devtools.panels.create(
     'Ajax拦截',
     'icons/icon16.png',
-    'devtools_panel.entry.html',
+    panelUrl,
     function(panel) {}
   );
 } catch(e) {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createDefaultGroup, DEFAULT_SETTINGS, normalizeGroups } from '../utils/data';
+import { normalizeHitCounts } from '../utils/hitCounts';
 
 const DEFAULT_GROUPS = [createDefaultGroup()];
 
@@ -15,7 +16,7 @@ export function useStorage() {
       const data = await chrome.storage.local.get(['groups', 'globalEnabled', 'hitCounts', 'settings']);
       setGroups(normalizeGroups(data.groups || DEFAULT_GROUPS));
       setGlobalEnabled(data.globalEnabled !== false);
-      setHitCounts(data.hitCounts || {});
+      setHitCounts(normalizeHitCounts(data.hitCounts));
       setSettings(Object.assign({}, DEFAULT_SETTINGS, data.settings || {}));
     } finally {
       setLoading(false);
@@ -30,7 +31,7 @@ export function useStorage() {
       setGlobalEnabled(patch.globalEnabled !== false);
     }
     if (Object.prototype.hasOwnProperty.call(patch, 'hitCounts')) {
-      setHitCounts(patch.hitCounts || {});
+      setHitCounts(normalizeHitCounts(patch.hitCounts));
     }
     if (Object.prototype.hasOwnProperty.call(patch, 'settings')) {
       setSettings(Object.assign({}, DEFAULT_SETTINGS, patch.settings || {}));
@@ -43,7 +44,7 @@ export function useStorage() {
       if (area !== 'local') return;
       if (changes.groups) setGroups(normalizeGroups(changes.groups.newValue || DEFAULT_GROUPS));
       if (changes.globalEnabled !== undefined) setGlobalEnabled(changes.globalEnabled.newValue !== false);
-      if (changes.hitCounts) setHitCounts(changes.hitCounts.newValue || {});
+      if (changes.hitCounts) setHitCounts(normalizeHitCounts(changes.hitCounts.newValue));
       if (changes.settings) setSettings(Object.assign({}, DEFAULT_SETTINGS, changes.settings.newValue || {}));
     };
     chrome.storage.onChanged.addListener(listener);
@@ -69,7 +70,7 @@ export function useStorage() {
   }, [save, settings]);
 
   const saveHitCounts = useCallback(async (newHitCounts) => {
-    await save({ hitCounts: newHitCounts });
+    await save({ hitCounts: normalizeHitCounts(newHitCounts) });
   }, [save]);
 
   return {
