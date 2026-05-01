@@ -17,6 +17,7 @@ function copy(src, dest) {
 copy(resolve(root, 'icons'), resolve(dist, 'icons'));
 copy(resolve(root, 'libs'), resolve(dist, 'libs'));
 copy(resolve(root, 'background/background.js'), resolve(dist, 'background/background.js'));
+copy(resolve(root, 'content/content.js'), resolve(dist, 'content/content.js'));
 copy(resolve(root, 'content/inject.js'), resolve(dist, 'content/inject.js'));
 copy(resolve(root, 'devtools.html'), resolve(dist, 'devtools.html'));
 copy(resolve(root, 'devtools.js'), resolve(dist, 'devtools.js'));
@@ -33,6 +34,12 @@ const manifest = {
   devtools_page: 'devtools.html',
   background: { service_worker: 'background/background.js' },
   content_scripts: [
+    {
+      matches: ['<all_urls>'],
+      js: ['content/content.js'],
+      run_at: 'document_start',
+      all_frames: true,
+    },
     {
       matches: ['<all_urls>'],
       js: ['content/inject.js'],

@@ -1,3 +1,5 @@
+importScripts('../libs/storage-normalizer.js');
+
 // Background service worker
 
 var stateCache = {
@@ -20,12 +22,19 @@ async function hydrateStateCache(force) {
 
   stateCachePromise = chrome.storage.local
     .get(['groups', 'globalEnabled', 'hitCounts'])
-    .then(function(data) {
+    .then(async function(data) {
+      var normalized = StorageNormalizer.normalizeGroupsWithMeta(data.groups || []);
+
       stateCache = {
-        groups: data.groups || [],
+        groups: normalized.groups,
         globalEnabled: data.globalEnabled !== false,
         hitCounts: data.hitCounts || {}
       };
+
+      if (normalized.changed) {
+        await chrome.storage.local.set({ groups: normalized.groups });
+      }
+
       return stateCache;
     })
     .catch(function(error) {
@@ -293,7 +302,14 @@ chrome.storage.onChanged.addListener(function(changes, areaName) {
   if (areaName !== 'local') return;
 
   if (changes.groups) {
-    stateCache.groups = changes.groups.newValue || [];
+    var normalized = StorageNormalizer.normalizeGroupsWithMeta(changes.groups.newValue || []);
+    stateCache.groups = normalized.groups;
+
+    if (normalized.changed) {
+      chrome.storage.local.set({ groups: normalized.groups }).catch(function(error) {
+        console.error('修正规则数据失败:', error);
+      });
+    }
   }
 
   if (changes.globalEnabled) {

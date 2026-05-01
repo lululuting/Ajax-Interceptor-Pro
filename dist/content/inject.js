@@ -28,50 +28,45 @@
   }
 
   function requestIntercept(url, method) {
-    return requestInterceptDirect(normalizeUrl(url), normalizeMethod(method));
-  }
+    return new Promise(function(resolve) {
+      var requestId = 'intercept-' + Date.now() + '-' + Math.random().toString(36).slice(2, 11);
+      var finished = false;
+      var timeoutId = null;
 
-  function requestInterceptDirect(url, method) {
-    return new Promise(function(resolve, reject) {
-      var runtime = typeof chrome !== 'undefined' ? chrome.runtime : null;
-      if (
-        !runtime ||
-        typeof runtime.sendMessage !== 'function'
-      ) {
-        reject(new Error('runtime-unavailable'));
-        return;
+      function cleanup() {
+        window.removeEventListener('message', onInterceptorMessage);
+        if (timeoutId) {
+          window.clearTimeout(timeoutId);
+          timeoutId = null;
+        }
       }
 
-      var finished = false;
-      var timeoutId = window.setTimeout(function() {
+      function finish(response) {
         if (finished) return;
         finished = true;
-        reject(new Error('runtime-timeout'));
+        cleanup();
+        resolve(response || null);
+      }
+
+      function onInterceptorMessage(event) {
+        if (event.source !== window) return;
+        if (!event.data || event.data.type !== 'AJAX_INTERCEPTOR_RESPONSE') return;
+        if (event.data.requestId !== requestId) return;
+
+        finish(event.data.response);
+      }
+
+      window.addEventListener('message', onInterceptorMessage);
+      timeoutId = window.setTimeout(function() {
+        finish(null);
       }, REQUEST_TIMEOUT_MS);
 
-      try {
-        runtime.sendMessage({
-          type: 'GET_RESPONSE',
-          url: url,
-          method: method
-        }, function(response) {
-          if (finished) return;
-          finished = true;
-          window.clearTimeout(timeoutId);
-
-          if (runtime.lastError) {
-            reject(new Error(runtime.lastError.message || 'runtime-error'));
-            return;
-          }
-
-          resolve(response || null);
-        });
-      } catch (error) {
-        if (finished) return;
-        finished = true;
-        window.clearTimeout(timeoutId);
-        reject(error);
-      }
+      window.postMessage({
+        type: 'AJAX_INTERCEPTOR_REQUEST',
+        requestId: requestId,
+        url: normalizeUrl(url),
+        method: normalizeMethod(method)
+      }, '*');
     });
   }
 
