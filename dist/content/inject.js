@@ -13,7 +13,7 @@
   var originalXHROpen = XMLHttpRequest.prototype.open;
   var originalXHRSend = XMLHttpRequest.prototype.send;
   var originalFetch = window.fetch;
-  var REQUEST_TIMEOUT_MS = 1200;
+  var REQUEST_TIMEOUT_MS = 3000;
 
   function normalizeMethod(method) {
     return String(method || 'GET').toUpperCase();

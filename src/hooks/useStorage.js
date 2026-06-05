@@ -4,9 +4,29 @@ import { normalizeHitCounts } from '../utils/hitCounts';
 
 const DEFAULT_GROUPS = [createDefaultGroup()];
 
-export function useStorage() {
+function sendRuntimeMessage(payload) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(payload, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+        return;
+      }
+
+      resolve(response);
+    });
+  });
+}
+
+export function useStorage(options = {}) {
+  const mode = options.mode === 'devtools' ? 'devtools' : 'popup';
+  const contextTabId = typeof options.contextTabId === 'number' ? options.contextTabId : null;
+  const hasDevtoolsTabContext = mode === 'devtools' && contextTabId !== null;
   const [groups, setGroups] = useState(DEFAULT_GROUPS);
   const [globalEnabled, setGlobalEnabled] = useState(true);
+  const [devtoolsTabState, setDevtoolsTabState] = useState({
+    enabled: true,
+    connected: false,
+  });
   const [hitCounts, setHitCounts] = useState({});
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -22,6 +42,27 @@ export function useStorage() {
       setLoading(false);
     }
   }, []);
+
+  const loadDevtoolsTabState = useCallback(async () => {
+    if (!hasDevtoolsTabContext) {
+      setDevtoolsTabState({ enabled: true, connected: false });
+      return;
+    }
+
+    try {
+      const response = await sendRuntimeMessage({
+        type: 'GET_DEVTOOLS_TAB_STATE',
+        tabId: contextTabId,
+      });
+
+      setDevtoolsTabState({
+        enabled: response?.enabled !== false,
+        connected: response?.connected === true,
+      });
+    } catch (error) {
+      setDevtoolsTabState({ enabled: true, connected: false });
+    }
+  }, [contextTabId, hasDevtoolsTabContext]);
 
   const applyPatch = useCallback((patch) => {
     if (Object.prototype.hasOwnProperty.call(patch, 'groups')) {
@@ -41,6 +82,11 @@ export function useStorage() {
   useEffect(() => {
     loadData();
     const listener = (changes, area) => {
+      if (area === 'session') {
+        loadDevtoolsTabState();
+        return;
+      }
+
       if (area !== 'local') return;
       if (changes.groups) setGroups(normalizeGroups(changes.groups.newValue || DEFAULT_GROUPS));
       if (changes.globalEnabled !== undefined) setGlobalEnabled(changes.globalEnabled.newValue !== false);
@@ -49,7 +95,11 @@ export function useStorage() {
     };
     chrome.storage.onChanged.addListener(listener);
     return () => chrome.storage.onChanged.removeListener(listener);
-  }, [loadData]);
+  }, [loadData, loadDevtoolsTabState]);
+
+  useEffect(() => {
+    loadDevtoolsTabState();
+  }, [loadDevtoolsTabState]);
 
   const save = useCallback(async (patch) => {
     applyPatch(patch);
@@ -64,6 +114,25 @@ export function useStorage() {
     await save({ globalEnabled: val });
   }, [save]);
 
+  const saveDevtoolsTabEnabled = useCallback(async (val) => {
+    if (!hasDevtoolsTabContext) {
+      return;
+    }
+
+    setDevtoolsTabState((current) => ({ ...current, enabled: val }));
+
+    const response = await sendRuntimeMessage({
+      type: 'SET_DEVTOOLS_TAB_ENABLED',
+      tabId: contextTabId,
+      enabled: val,
+    });
+
+    setDevtoolsTabState({
+      enabled: response?.enabled !== false,
+      connected: response?.connected === true,
+    });
+  }, [contextTabId, hasDevtoolsTabContext]);
+
   const saveSettings = useCallback(async (newSettings) => {
     // 设置项会持续扩展，这里始终按默认值 + 当前值 + 新补丁合并，避免互相覆盖。
     await save({ settings: Object.assign({}, DEFAULT_SETTINGS, settings, newSettings) });
@@ -74,8 +143,21 @@ export function useStorage() {
   }, [save]);
 
   return {
-    groups, globalEnabled, hitCounts, settings, loading,
-    saveGroups, saveGlobalEnabled, saveSettings, saveHitCounts, save,
+    groups,
+    globalEnabled,
+    devtoolsTabEnabled: devtoolsTabState.enabled,
+    devtoolsTabConnected: devtoolsTabState.connected,
+    interceptEnabled: hasDevtoolsTabContext ? devtoolsTabState.enabled : globalEnabled,
+    hitCounts,
+    settings,
+    loading,
+    saveGroups,
+    saveGlobalEnabled,
+    saveDevtoolsTabEnabled,
+    saveInterceptEnabled: hasDevtoolsTabContext ? saveDevtoolsTabEnabled : saveGlobalEnabled,
+    saveSettings,
+    saveHitCounts,
+    save,
     reload: loadData,
   };
 }

@@ -32,7 +32,7 @@ const DARK_THEME_TOKENS = {
 };
 
 export default function App({ mode, contextTabId = null }) {
-  const storage = useStorage();
+  const storage = useStorage({ mode, contextTabId });
   const [currentGroupId, setCurrentGroupId] = useState('all');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -49,6 +49,7 @@ export default function App({ mode, contextTabId = null }) {
   const groups = sortGroups(storage.groups);
   const displayHitCounts = buildDisplayHitCounts(storage.hitCounts, mode, contextTabId);
   const interceptScopeLabel = getInterceptScopeLabel(mode);
+  const interceptSwitchTitle = mode === 'devtools' ? '当前页开关' : '全局开关';
   const editingGroup = groupModal.groupId ? groups.find((group) => group.id === groupModal.groupId) : null;
   const themeMode = normalizeThemeMode(storage.settings.themeMode);
   const isDarkTheme = resolvedTheme === 'dark';
@@ -212,7 +213,11 @@ export default function App({ mode, contextTabId = null }) {
                 <span className="header-scope-badge">{interceptScopeLabel}</span>
               </div>
               <div className="header-actions">
-                <Switch checked={storage.globalEnabled} onChange={storage.saveGlobalEnabled} title="全局开关" />
+                <Switch
+                  checked={storage.interceptEnabled}
+                  onChange={storage.saveInterceptEnabled}
+                  title={interceptSwitchTitle}
+                />
                 <Button className="header-settings-btn" type="text" onClick={() => setSettingsOpen(true)} title="设置" icon={<SettingsIcon />} />
               </div>
             </header>

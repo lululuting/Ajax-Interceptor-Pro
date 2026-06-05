@@ -18,6 +18,26 @@ test('matchUrl supports host plus path patterns', () => {
   assert.equal(matchUrl('https://example.com/api/order/42', 'example.com/api/order/*'), true);
 });
 
+test('matchUrl supports host plus path prefix patterns without trailing wildcard', () => {
+  assert.equal(matchUrl('https://example.com/api/order/42', 'example.com/api/order'), true);
+});
+
+test('matchUrl supports short contains patterns', () => {
+  assert.equal(matchUrl('https://example.com/api/user/42', 'user'), true);
+});
+
+test('matchUrl supports slashless path prefix patterns', () => {
+  assert.equal(matchUrl('https://example.com/api/user/42?tab=profile', 'api/user'), true);
+});
+
+test('matchUrl supports path prefix patterns without trailing wildcard', () => {
+  assert.equal(matchUrl('https://example.com/api/user/42?tab=profile', '/api/user'), true);
+});
+
+test('matchUrl supports regex literal patterns', () => {
+  assert.equal(matchUrl('https://example.com/api/user/42', '/\\/api\\/user\\/\\d+$/'), true);
+});
+
 test('matchUrl does not match unrelated paths', () => {
   assert.equal(matchUrl('https://example.com/api/order/42', '/api/user/*'), false);
 });

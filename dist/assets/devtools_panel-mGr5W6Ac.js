@@ -1,0 +1,1 @@
+import{i as e,n as t,r as n,t as r}from"./App-VpmFcL1Q.js";e();var i=n(),a=t(),o=new URLSearchParams(window.location.search).get(`tabId`),s=Number(o),c=o!==null&&Number.isFinite(s)?s:null;(0,i.createRoot)(document.getElementById(`root`)).render((0,a.jsx)(r,{mode:`devtools`,contextTabId:c}));
