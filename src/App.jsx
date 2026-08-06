@@ -221,6 +221,11 @@ export default function App({ mode, contextTabId = null }) {
                 <Button className="header-settings-btn" type="text" onClick={() => setSettingsOpen(true)} title="设置" icon={<SettingsIcon />} />
               </div>
             </header>
+            {mode !== 'devtools' ? (
+              <div className="header-global-tip" role="note">
+                全局拦截会影响所有页面，部分 SDK/监控可能异常。不用时请关闭开关，或改用 DevTools 模式（仅当前调试页）。
+              </div>
+            ) : null}
             <div className="main">
               <Sidebar
                 groups={groups}

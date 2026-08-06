@@ -171,17 +171,18 @@
       scrollBeyondLastLine: false,
       tabSize: 2,
       insertSpaces: true,
+      detectIndentation: false,
       wordWrap: 'on',
       folding: true,
-      foldingStrategy: 'indentation',
+      foldingStrategy: 'auto',
       showFoldingControls: 'always',
       renderLineHighlight: 'line',
       bracketPairColorization: { enabled: true },
       guides: { bracketPairs: true, indentation: true },
       quickSuggestions: true,
       suggestOnTriggerCharacters: true,
-      formatOnPaste: true,
-      formatOnType: true,
+      formatOnPaste: false,
+      formatOnType: false,
       scrollbar: {
         vertical: 'auto',
         horizontal: 'auto',
@@ -270,10 +271,31 @@
     this._applyFallbackTheme(this.inner && this.inner.querySelector('textarea'));
   };
 
-  MonacoEditor.prototype.format = function () {
-    if (this.editor) {
-      this.editor.getAction('editor.action.formatDocument').run();
+  MonacoEditor.prototype._formatJsonValue = function (raw) {
+    try {
+      var formatted = JSON.stringify(JSON.parse(raw), null, 2);
+      this.setValue(formatted);
+      if (this.editor) {
+        this.editor.getModel().updateOptions({
+          tabSize: 2,
+          insertSpaces: true,
+          detectIndentation: false
+        });
+      }
+      return true;
+    } catch (error) {
+      return false;
     }
+  };
+
+  MonacoEditor.prototype.format = function () {
+    var raw = this.getValue();
+    if (!raw || !String(raw).trim()) {
+      return Promise.resolve(true);
+    }
+
+    // JSON 场景用 parse/stringify 保证缩进稳定；Monaco formatDocument 对粘贴乱码不可靠。
+    return Promise.resolve(this._formatJsonValue(raw));
   };
 
   MonacoEditor.prototype.dispose = function () {

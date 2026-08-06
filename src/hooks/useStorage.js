@@ -22,9 +22,9 @@ export function useStorage(options = {}) {
   const contextTabId = typeof options.contextTabId === 'number' ? options.contextTabId : null;
   const hasDevtoolsTabContext = mode === 'devtools' && contextTabId !== null;
   const [groups, setGroups] = useState(DEFAULT_GROUPS);
-  const [globalEnabled, setGlobalEnabled] = useState(true);
+  const [globalEnabled, setGlobalEnabled] = useState(false);
   const [devtoolsTabState, setDevtoolsTabState] = useState({
-    enabled: true,
+    enabled: false,
     connected: false,
   });
   const [hitCounts, setHitCounts] = useState({});
@@ -35,7 +35,7 @@ export function useStorage(options = {}) {
     try {
       const data = await chrome.storage.local.get(['groups', 'globalEnabled', 'hitCounts', 'settings']);
       setGroups(normalizeGroups(data.groups || DEFAULT_GROUPS));
-      setGlobalEnabled(data.globalEnabled !== false);
+      setGlobalEnabled(data.globalEnabled === true);
       setHitCounts(normalizeHitCounts(data.hitCounts));
       setSettings(Object.assign({}, DEFAULT_SETTINGS, data.settings || {}));
     } finally {
@@ -45,7 +45,7 @@ export function useStorage(options = {}) {
 
   const loadDevtoolsTabState = useCallback(async () => {
     if (!hasDevtoolsTabContext) {
-      setDevtoolsTabState({ enabled: true, connected: false });
+      setDevtoolsTabState({ enabled: false, connected: false });
       return;
     }
 
@@ -56,11 +56,11 @@ export function useStorage(options = {}) {
       });
 
       setDevtoolsTabState({
-        enabled: response?.enabled !== false,
+        enabled: response?.enabled === true,
         connected: response?.connected === true,
       });
     } catch (error) {
-      setDevtoolsTabState({ enabled: true, connected: false });
+      setDevtoolsTabState({ enabled: false, connected: false });
     }
   }, [contextTabId, hasDevtoolsTabContext]);
 
@@ -69,7 +69,7 @@ export function useStorage(options = {}) {
       setGroups(normalizeGroups(patch.groups || DEFAULT_GROUPS));
     }
     if (Object.prototype.hasOwnProperty.call(patch, 'globalEnabled')) {
-      setGlobalEnabled(patch.globalEnabled !== false);
+      setGlobalEnabled(patch.globalEnabled === true);
     }
     if (Object.prototype.hasOwnProperty.call(patch, 'hitCounts')) {
       setHitCounts(normalizeHitCounts(patch.hitCounts));
@@ -89,7 +89,7 @@ export function useStorage(options = {}) {
 
       if (area !== 'local') return;
       if (changes.groups) setGroups(normalizeGroups(changes.groups.newValue || DEFAULT_GROUPS));
-      if (changes.globalEnabled !== undefined) setGlobalEnabled(changes.globalEnabled.newValue !== false);
+      if (changes.globalEnabled !== undefined) setGlobalEnabled(changes.globalEnabled.newValue === true);
       if (changes.hitCounts) setHitCounts(normalizeHitCounts(changes.hitCounts.newValue));
       if (changes.settings) setSettings(Object.assign({}, DEFAULT_SETTINGS, changes.settings.newValue || {}));
     };
@@ -128,7 +128,7 @@ export function useStorage(options = {}) {
     });
 
     setDevtoolsTabState({
-      enabled: response?.enabled !== false,
+      enabled: response?.enabled === true,
       connected: response?.connected === true,
     });
   }, [contextTabId, hasDevtoolsTabContext]);

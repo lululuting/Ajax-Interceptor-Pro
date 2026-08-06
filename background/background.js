@@ -1,10 +1,10 @@
-importScripts('../libs/storage-normalizer.js', '../libs/url-match.js');
+importScripts('../libs/storage-normalizer.js', '../libs/url-match.js', '../libs/intercept-active.js');
 
 // Background service worker
 
 var stateCache = {
   groups: [],
-  globalEnabled: true,
+  globalEnabled: false,
   hitCounts: {},
   settings: {
     openMode: 'popup'
@@ -17,10 +17,15 @@ var popupWindowId = null;
 var devtoolsPortsByTabId = new Map();
 var devtoolsTabEnabled = {};
 var devtoolsTabEnabledPromise = null;
+var devtoolsConnectedAt = {};
+var devtoolsConnectedAtPromise = null;
 var POPUP_WINDOW_URL = 'popup.entry.html';
 var POPUP_WINDOW_WIDTH = 820;
 var POPUP_WINDOW_HEIGHT = 680;
 var DEVTOOLS_TAB_ENABLED_KEY = 'devtoolsTabEnabled';
+var DEVTOOLS_CONNECTED_AT_KEY = 'devtoolsConnectedAt';
+var INTERCEPT_ACTIVE_SIGNAL_KEY = 'interceptActiveSignal';
+var DEVTOOLS_CONNECTED_TTL_MS = 20000;
 
 function normalizeStoredHitCounts(hitCounts) {
   var source = hitCounts && typeof hitCounts === 'object' && !Array.isArray(hitCounts) ? hitCounts : {};
@@ -72,8 +77,22 @@ function normalizeBooleanMap(value) {
   var normalized = {};
 
   Object.keys(source).forEach(function(key) {
-    if (source[key] === false) {
-      normalized[String(key)] = false;
+    if (source[key] === true) {
+      normalized[String(key)] = true;
+    }
+  });
+
+  return normalized;
+}
+
+function normalizeTimestampMap(value) {
+  var source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  var normalized = {};
+
+  Object.keys(source).forEach(function(key) {
+    var touchedAt = Number(source[key]);
+    if (Number.isFinite(touchedAt) && touchedAt > 0) {
+      normalized[String(key)] = touchedAt;
     }
   });
 
@@ -83,19 +102,6 @@ function normalizeBooleanMap(value) {
 function getActiveMode() {
   var settings = (stateCache && stateCache.settings) || {};
   return settings.openMode === 'devtools' ? 'devtools' : 'popup';
-}
-
-function canInterceptSender(sender) {
-  if (getActiveMode() !== 'devtools') {
-    return true;
-  }
-
-  var senderTabId = getSenderTabId(sender);
-  if (senderTabId === null) {
-    return false;
-  }
-
-  return devtoolsPortsByTabId.has(senderTabId);
 }
 
 async function readDevtoolsTabEnabledMap(force) {
@@ -121,13 +127,90 @@ async function readDevtoolsTabEnabledMap(force) {
   return devtoolsTabEnabledPromise;
 }
 
+async function readDevtoolsConnectedAtMap(force) {
+  if (!chrome.storage || !chrome.storage.session) {
+    return devtoolsConnectedAt;
+  }
+
+  if (!force && devtoolsConnectedAtPromise) {
+    return devtoolsConnectedAtPromise;
+  }
+
+  devtoolsConnectedAtPromise = chrome.storage.session
+    .get([DEVTOOLS_CONNECTED_AT_KEY])
+    .then(function(data) {
+      devtoolsConnectedAt = normalizeTimestampMap(data[DEVTOOLS_CONNECTED_AT_KEY]);
+      return devtoolsConnectedAt;
+    })
+    .catch(function(error) {
+      console.warn('读取 DevTools 连接状态失败:', error);
+      return devtoolsConnectedAt;
+    });
+
+  return devtoolsConnectedAtPromise;
+}
+
+async function touchDevtoolsConnected(tabId) {
+  if (typeof tabId !== 'number') {
+    return;
+  }
+
+  await readDevtoolsConnectedAtMap();
+  var nextMap = Object.assign({}, devtoolsConnectedAt);
+  nextMap[String(tabId)] = Date.now();
+  devtoolsConnectedAt = nextMap;
+  devtoolsConnectedAtPromise = Promise.resolve(devtoolsConnectedAt);
+
+  if (chrome.storage && chrome.storage.session) {
+    await chrome.storage.session.set({
+      [DEVTOOLS_CONNECTED_AT_KEY]: devtoolsConnectedAt
+    });
+  }
+}
+
+async function clearDevtoolsConnected(tabId) {
+  if (typeof tabId !== 'number') {
+    return;
+  }
+
+  await readDevtoolsConnectedAtMap();
+  if (!Object.prototype.hasOwnProperty.call(devtoolsConnectedAt, String(tabId))) {
+    return;
+  }
+
+  var nextMap = Object.assign({}, devtoolsConnectedAt);
+  delete nextMap[String(tabId)];
+  devtoolsConnectedAt = nextMap;
+  devtoolsConnectedAtPromise = Promise.resolve(devtoolsConnectedAt);
+
+  if (chrome.storage && chrome.storage.session) {
+    await chrome.storage.session.set({
+      [DEVTOOLS_CONNECTED_AT_KEY]: devtoolsConnectedAt
+    });
+  }
+}
+
+async function isDevtoolsTabConnected(tabId) {
+  if (typeof tabId !== 'number') {
+    return false;
+  }
+
+  if (devtoolsPortsByTabId.has(tabId)) {
+    return true;
+  }
+
+  var connectedAtMap = await readDevtoolsConnectedAtMap();
+  var touchedAt = connectedAtMap[String(tabId)];
+  return typeof touchedAt === 'number' && (Date.now() - touchedAt) < DEVTOOLS_CONNECTED_TTL_MS;
+}
+
 async function isDevtoolsTabEnabled(tabId) {
   if (typeof tabId !== 'number') {
     return false;
   }
 
   var enabledMap = await readDevtoolsTabEnabledMap();
-  return enabledMap[String(tabId)] !== false;
+  return enabledMap[String(tabId)] === true;
 }
 
 async function setDevtoolsTabEnabled(tabId, enabled) {
@@ -139,8 +222,8 @@ async function setDevtoolsTabEnabled(tabId, enabled) {
   var tabKey = String(tabId);
   var nextEnabledMap = Object.assign({}, devtoolsTabEnabled);
 
-  if (enabled === false) {
-    nextEnabledMap[tabKey] = false;
+  if (enabled === true) {
+    nextEnabledMap[tabKey] = true;
   } else {
     delete nextEnabledMap[tabKey];
   }
@@ -154,17 +237,97 @@ async function setDevtoolsTabEnabled(tabId, enabled) {
     });
   }
 
-  return {
-    enabled: devtoolsTabEnabled[tabKey] !== false,
-    connected: devtoolsPortsByTabId.has(tabId)
+  var result = {
+    enabled: devtoolsTabEnabled[tabKey] === true,
+    connected: await isDevtoolsTabConnected(tabId)
   };
+
+  await bumpInterceptActiveSignal();
+  await notifyTabInterceptActive(tabId);
+
+  return result;
 }
 
 async function getDevtoolsTabState(tabId) {
   return {
     enabled: await isDevtoolsTabEnabled(tabId),
-    connected: typeof tabId === 'number' && devtoolsPortsByTabId.has(tabId)
+    connected: await isDevtoolsTabConnected(tabId)
   };
+}
+
+async function refreshInterceptDecisionInputs() {
+  // storage.onChanged 与 content 的 GET 查询可能并发；先读最新值，避免把过期开关状态推回页面。
+  var latest = await chrome.storage.local.get(['globalEnabled', 'settings']);
+  stateCache.globalEnabled = latest.globalEnabled === true;
+  if (latest.settings) {
+    stateCache.settings = latest.settings;
+  }
+}
+
+async function getInterceptActiveForTab(tabId, options) {
+  await hydrateStateCache();
+
+  if (options && options.fresh === true) {
+    await refreshInterceptDecisionInputs();
+  }
+
+  var connected = await isDevtoolsTabConnected(tabId);
+  var tabEnabled = typeof tabId === 'number' ? await isDevtoolsTabEnabled(tabId) : false;
+
+  return InterceptActive.isActive({
+    openMode: getActiveMode(),
+    globalEnabled: stateCache.globalEnabled === true,
+    devtoolsConnected: connected,
+    devtoolsTabEnabled: tabEnabled
+  });
+}
+
+async function getInterceptActiveForSender(sender) {
+  return getInterceptActiveForTab(getSenderTabId(sender));
+}
+
+async function bumpInterceptActiveSignal() {
+  if (!chrome.storage || !chrome.storage.session) {
+    return;
+  }
+
+  try {
+    await chrome.storage.session.set({
+      [INTERCEPT_ACTIVE_SIGNAL_KEY]: Date.now()
+    });
+  } catch (error) {
+    console.warn('广播拦截挂载状态失败:', error);
+  }
+}
+
+async function notifyTabInterceptActive(tabId) {
+  if (typeof tabId !== 'number') {
+    return;
+  }
+
+  var active = await getInterceptActiveForTab(tabId, { fresh: true });
+
+  try {
+    await chrome.tabs.sendMessage(tabId, {
+      type: 'AJAX_INTERCEPTOR_ACTIVE_CHANGED',
+      active: active
+    });
+  } catch (error) {
+    // 页面尚未注入 content script 时可忽略。
+  }
+}
+
+async function broadcastInterceptActive() {
+  await bumpInterceptActiveSignal();
+
+  try {
+    var tabs = await chrome.tabs.query({});
+    await Promise.all(tabs.map(function(tab) {
+      return notifyTabInterceptActive(tab.id);
+    }));
+  } catch (error) {
+    console.warn('向标签页广播拦截状态失败:', error);
+  }
 }
 
 function incrementRuleHitCount(tabId, ruleId) {
@@ -218,7 +381,7 @@ async function hydrateStateCache(force) {
 
       stateCache = {
         groups: normalizedGroups.groups,
-        globalEnabled: data.globalEnabled !== false,
+        globalEnabled: data.globalEnabled === true,
         hitCounts: normalizedHitCounts.hitCounts,
         settings: nextSettings
       };
@@ -403,17 +566,24 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     return true;
   }
 
+  if (request.type === 'GET_INTERCEPT_ACTIVE') {
+    getInterceptActiveForTab(getSenderTabId(sender), { fresh: true })
+      .then(function(active) { sendResponse({ active: active === true }); })
+      .catch(function() { sendResponse({ active: false }); });
+    return true;
+  }
+
   if (request.type === 'GET_DEVTOOLS_TAB_STATE') {
     getDevtoolsTabState(request.tabId)
       .then(function(response) { sendResponse(response); })
-      .catch(function() { sendResponse({ enabled: true, connected: false }); });
+      .catch(function() { sendResponse({ enabled: false, connected: false }); });
     return true;
   }
 
   if (request.type === 'SET_DEVTOOLS_TAB_ENABLED') {
     setDevtoolsTabEnabled(request.tabId, request.enabled)
       .then(function(response) { sendResponse(response); })
-      .catch(function() { sendResponse({ enabled: true, connected: false }); });
+      .catch(function() { sendResponse({ enabled: false, connected: false }); });
     return true;
   }
 });
@@ -423,10 +593,7 @@ async function handleInterceptRequest(url, method, sender) {
   var requestMethod = normalizeMethod(method);
   var senderTabId = getSenderTabId(sender);
 
-  if (getActiveMode() === 'devtools') {
-    if (!canInterceptSender(sender)) return null;
-    if (!await isDevtoolsTabEnabled(senderTabId)) return null;
-  } else if (data.globalEnabled === false) {
+  if (!await getInterceptActiveForSender(sender)) {
     return null;
   }
 
@@ -470,13 +637,17 @@ function matchUrl(url, pattern) {
 }
 
 chrome.runtime.onInstalled.addListener(function() {
-  chrome.storage.local.get(['settings'], function(result) {
+  chrome.storage.local.get(['settings', 'globalEnabled'], function(result) {
     var payload = {};
 
     if (!result.settings) {
       payload.settings = { showHitCount: true, openMode: 'popup', themeMode: 'auto' };
     } else if (!result.settings.openMode) {
       payload.settings = Object.assign({}, result.settings, { openMode: 'popup' });
+    }
+
+    if (result.globalEnabled === undefined) {
+      payload.globalEnabled = false;
     }
 
     if (Object.keys(payload).length) {
@@ -517,10 +688,31 @@ chrome.runtime.onConnect.addListener(function(port) {
     cleanup();
     currentTabId = message.tabId;
     devtoolsPortsByTabId.set(currentTabId, port);
+    touchDevtoolsConnected(currentTabId)
+      .then(function() {
+        return bumpInterceptActiveSignal();
+      })
+      .then(function() {
+        return notifyTabInterceptActive(currentTabId);
+      })
+      .catch(function(error) {
+        console.warn('同步 DevTools 连接状态失败:', error);
+      });
   });
 
   port.onDisconnect.addListener(function() {
+    var disconnectedTabId = currentTabId;
     cleanup();
+    clearDevtoolsConnected(disconnectedTabId)
+      .then(function() {
+        return bumpInterceptActiveSignal();
+      })
+      .then(function() {
+        return notifyTabInterceptActive(disconnectedTabId);
+      })
+      .catch(function(error) {
+        console.warn('清理 DevTools 连接状态失败:', error);
+      });
   });
 });
 
@@ -540,6 +732,10 @@ chrome.storage.onChanged.addListener(function(changes, areaName) {
       devtoolsTabEnabled = normalizeBooleanMap(changes[DEVTOOLS_TAB_ENABLED_KEY].newValue);
       devtoolsTabEnabledPromise = Promise.resolve(devtoolsTabEnabled);
     }
+    if (changes[DEVTOOLS_CONNECTED_AT_KEY]) {
+      devtoolsConnectedAt = normalizeTimestampMap(changes[DEVTOOLS_CONNECTED_AT_KEY].newValue);
+      devtoolsConnectedAtPromise = Promise.resolve(devtoolsConnectedAt);
+    }
     return;
   }
 
@@ -557,7 +753,8 @@ chrome.storage.onChanged.addListener(function(changes, areaName) {
   }
 
   if (changes.globalEnabled) {
-    stateCache.globalEnabled = changes.globalEnabled.newValue !== false;
+    stateCache.globalEnabled = changes.globalEnabled.newValue === true;
+    broadcastInterceptActive();
   }
 
   if (changes.hitCounts) {
@@ -574,8 +771,13 @@ chrome.storage.onChanged.addListener(function(changes, areaName) {
 
   if (changes.settings) {
     var nextSettings = changes.settings.newValue || { openMode: 'popup' };
+    var previousMode = getActiveMode();
     stateCache.settings = nextSettings;
     applyModeToAction(nextSettings.openMode);
+
+    if (previousMode !== getActiveMode()) {
+      broadcastInterceptActive();
+    }
   }
 });
 
@@ -596,11 +798,12 @@ chrome.tabs.onRemoved.addListener(function(tabId) {
   // 只有 tab 真正关闭时才清这个页面的计数，刷新不会触发这里。
   clearHitCountsForTab(tabId);
 
-  setDevtoolsTabEnabled(tabId, true).catch(function(error) {
+  setDevtoolsTabEnabled(tabId, false).catch(function(error) {
     console.warn('清理当前页拦截开关失败:', error);
   });
 });
 
 hydrateStateCache();
 readDevtoolsTabEnabledMap();
+readDevtoolsConnectedAtMap();
 syncActionPopupFromSettings();

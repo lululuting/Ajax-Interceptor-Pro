@@ -10,10 +10,15 @@
     writable: false,
   });
 
-  var originalXHROpen = XMLHttpRequest.prototype.open;
-  var originalXHRSend = XMLHttpRequest.prototype.send;
-  var originalFetch = window.fetch;
   var REQUEST_TIMEOUT_MS = 3000;
+  var hooksInstalled = false;
+  var interceptEnabled = false;
+  var originalXHROpen = null;
+  var originalXHRSend = null;
+  var originalFetch = null;
+  var patchedXHROpen = null;
+  var patchedXHRSend = null;
+  var patchedFetch = null;
 
   function normalizeMethod(method) {
     return String(method || 'GET').toUpperCase();
@@ -156,50 +161,108 @@
     }, 0);
   }
 
-  XMLHttpRequest.prototype.open = function(method, url) {
-    this._interceptMethod = normalizeMethod(method);
-    this._interceptUrl = normalizeUrl(url);
-    return originalXHROpen.apply(this, arguments);
-  };
+  function installHooks() {
+    // 已经是我们的包装且仍挂在最外层时，无需重装。
+    if (
+      hooksInstalled &&
+      XMLHttpRequest.prototype.open === patchedXHROpen &&
+      XMLHttpRequest.prototype.send === patchedXHRSend &&
+      window.fetch === patchedFetch
+    ) {
+      return;
+    }
 
-  XMLHttpRequest.prototype.send = function() {
-    var xhr = this;
-    var url = xhr._interceptUrl || '';
-    var method = xhr._interceptMethod || 'GET';
-    var args = arguments;
+    originalXHROpen = XMLHttpRequest.prototype.open;
+    originalXHRSend = XMLHttpRequest.prototype.send;
+    originalFetch = window.fetch;
 
-    requestIntercept(url, method)
-      .then(function(resp) {
-        if (resp && resp.data !== undefined && resp.data !== null) {
-          mockXhrResponse(xhr, resp, url);
-          return;
-        }
+    patchedXHROpen = function(method, url) {
+      this._interceptMethod = normalizeMethod(method);
+      this._interceptUrl = normalizeUrl(url);
+      return originalXHROpen.apply(this, arguments);
+    };
 
-        originalXHRSend.apply(xhr, args);
-      })
-      .catch(function() {
-        originalXHRSend.apply(xhr, args);
-      });
-  };
+    patchedXHRSend = function() {
+      var xhr = this;
+      var args = arguments;
 
-  window.fetch = function(input, options) {
-    var urlString = typeof input === 'string'
-      ? input
-      : (input instanceof URL ? input.href : input.url);
-    var method = options && options.method
-      ? options.method
-      : (input && input.method ? input.method : 'GET');
+      if (!interceptEnabled) {
+        return originalXHRSend.apply(xhr, args);
+      }
 
-    return requestIntercept(urlString, method)
-      .then(function(resp) {
-        if (resp && resp.data !== undefined && resp.data !== null) {
-          return toFetchResponse(resp);
-        }
+      var url = xhr._interceptUrl || '';
+      var method = xhr._interceptMethod || 'GET';
 
+      requestIntercept(url, method)
+        .then(function(resp) {
+          if (!interceptEnabled) {
+            originalXHRSend.apply(xhr, args);
+            return;
+          }
+
+          if (resp && resp.data !== undefined && resp.data !== null) {
+            mockXhrResponse(xhr, resp, url);
+            return;
+          }
+
+          originalXHRSend.apply(xhr, args);
+        })
+        .catch(function() {
+          originalXHRSend.apply(xhr, args);
+        });
+    };
+
+    patchedFetch = function(input, options) {
+      if (!interceptEnabled) {
         return originalFetch(input, options);
-      })
-      .catch(function() {
-        return originalFetch(input, options);
-      });
-  };
+      }
+
+      var urlString = typeof input === 'string'
+        ? input
+        : (input instanceof URL ? input.href : input.url);
+      var method = options && options.method
+        ? options.method
+        : (input && input.method ? input.method : 'GET');
+
+      return requestIntercept(urlString, method)
+        .then(function(resp) {
+          if (!interceptEnabled) {
+            return originalFetch(input, options);
+          }
+
+          if (resp && resp.data !== undefined && resp.data !== null) {
+            return toFetchResponse(resp);
+          }
+
+          return originalFetch(input, options);
+        })
+        .catch(function() {
+          return originalFetch(input, options);
+        });
+    };
+
+    XMLHttpRequest.prototype.open = patchedXHROpen;
+    XMLHttpRequest.prototype.send = patchedXHRSend;
+    window.fetch = patchedFetch;
+    hooksInstalled = true;
+  }
+
+  function setEnabled(enabled) {
+    if (enabled) {
+      // 开启时强制确保补丁仍在最外层，避免页面又盖回原生 API 后开关无效。
+      installHooks();
+      interceptEnabled = true;
+      return;
+    }
+
+    interceptEnabled = false;
+  }
+
+  window.addEventListener('message', function(event) {
+    if (event.source !== window) return;
+    if (!event.data || event.data.type !== 'AJAX_INTERCEPTOR_SET_ENABLED') return;
+    setEnabled(event.data.enabled === true);
+  });
+
+  installHooks();
 })();

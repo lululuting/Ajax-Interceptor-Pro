@@ -74,7 +74,6 @@ export default function RuleList({
   const sortedGroups = sortGroups(groups);
   const keyword = search.trim().toLowerCase();
   const visibleRules = [];
-  const liveEditingRule = editingRule ? (findRuleLocation(groups, editingRule.id)?.rule || editingRule) : null;
 
   if (currentGroupId === 'all') {
     sortedGroups.forEach((group) => {
@@ -487,7 +486,7 @@ export default function RuleList({
 
       <RuleEditor
         open={editorOpen}
-        rule={liveEditingRule}
+        rule={editingRule}
         groupId={editingGroupId}
         groups={groups}
         resolvedTheme={resolvedTheme}
