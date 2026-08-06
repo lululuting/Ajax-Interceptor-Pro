@@ -11,9 +11,20 @@
   }
 
   function postEnabledToPage(enabled) {
+    var nextEnabled = enabled === true;
+
+    try {
+      document.documentElement.dispatchEvent(new CustomEvent('AJAX_INTERCEPTOR_SET_ENABLED', {
+        detail: { enabled: nextEnabled },
+        bubbles: true
+      }));
+    } catch (error) {
+      // ignore
+    }
+
     window.postMessage({
       type: 'AJAX_INTERCEPTOR_SET_ENABLED',
-      enabled: enabled === true
+      enabled: nextEnabled
     }, '*');
   }
 
@@ -102,7 +113,24 @@
 
   chrome.storage.onChanged.addListener(function(changes, areaName) {
     if (areaName === 'local') {
-      if (changes.globalEnabled || changes.settings) {
+      if (changes.globalEnabled) {
+        // 弹窗模式下先按最新开关值落页，避免异步确认前仍按旧状态拦截。
+        chrome.storage.local.get(['settings'], function(data) {
+          var openMode = data && data.settings && data.settings.openMode === 'devtools'
+            ? 'devtools'
+            : 'popup';
+
+          if (openMode === 'popup') {
+            syncGeneration += 1;
+            postEnabledToPage(changes.globalEnabled.newValue === true);
+          }
+
+          syncInterceptActive();
+        });
+        return;
+      }
+
+      if (changes.settings) {
         syncInterceptActive();
       }
       return;

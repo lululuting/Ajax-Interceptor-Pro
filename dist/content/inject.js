@@ -172,78 +172,88 @@
       return;
     }
 
-    originalXHROpen = XMLHttpRequest.prototype.open;
-    originalXHRSend = XMLHttpRequest.prototype.send;
-    originalFetch = window.fetch;
+    var baseOpen = XMLHttpRequest.prototype.open;
+    var baseSend = XMLHttpRequest.prototype.send;
+    var baseFetch = window.fetch;
 
-    patchedXHROpen = function(method, url) {
-      this._interceptMethod = normalizeMethod(method);
-      this._interceptUrl = normalizeUrl(url);
-      return originalXHROpen.apply(this, arguments);
-    };
+    // 下层实现必须闭包到局部变量；不要让补丁去读可变的 originalXHR*，否则重装时会自调用爆栈。
+    if (baseOpen !== patchedXHROpen) {
+      originalXHROpen = baseOpen;
+      patchedXHROpen = function(method, url) {
+        this._interceptMethod = normalizeMethod(method);
+        this._interceptUrl = normalizeUrl(url);
+        return baseOpen.apply(this, arguments);
+      };
+      XMLHttpRequest.prototype.open = patchedXHROpen;
+    }
 
-    patchedXHRSend = function() {
-      var xhr = this;
-      var args = arguments;
+    if (baseSend !== patchedXHRSend) {
+      originalXHRSend = baseSend;
+      patchedXHRSend = function() {
+        var xhr = this;
+        var args = arguments;
 
-      if (!interceptEnabled) {
-        return originalXHRSend.apply(xhr, args);
-      }
+        if (!interceptEnabled) {
+          return baseSend.apply(xhr, args);
+        }
 
-      var url = xhr._interceptUrl || '';
-      var method = xhr._interceptMethod || 'GET';
+        var url = xhr._interceptUrl || '';
+        var method = xhr._interceptMethod || 'GET';
 
-      requestIntercept(url, method)
-        .then(function(resp) {
-          if (!interceptEnabled) {
-            originalXHRSend.apply(xhr, args);
-            return;
-          }
+        requestIntercept(url, method)
+          .then(function(resp) {
+            if (!interceptEnabled) {
+              baseSend.apply(xhr, args);
+              return;
+            }
 
-          if (resp && resp.data !== undefined && resp.data !== null) {
-            mockXhrResponse(xhr, resp, url);
-            return;
-          }
+            if (resp && resp.data !== undefined && resp.data !== null) {
+              mockXhrResponse(xhr, resp, url);
+              return;
+            }
 
-          originalXHRSend.apply(xhr, args);
-        })
-        .catch(function() {
-          originalXHRSend.apply(xhr, args);
-        });
-    };
+            baseSend.apply(xhr, args);
+          })
+          .catch(function() {
+            baseSend.apply(xhr, args);
+          });
+      };
+      XMLHttpRequest.prototype.send = patchedXHRSend;
+    }
 
-    patchedFetch = function(input, options) {
-      if (!interceptEnabled) {
-        return originalFetch(input, options);
-      }
+    if (baseFetch !== patchedFetch) {
+      originalFetch = baseFetch;
+      patchedFetch = function(input, options) {
+        if (!interceptEnabled) {
+          return baseFetch(input, options);
+        }
 
-      var urlString = typeof input === 'string'
-        ? input
-        : (input instanceof URL ? input.href : input.url);
-      var method = options && options.method
-        ? options.method
-        : (input && input.method ? input.method : 'GET');
+        var urlString = typeof input === 'string'
+          ? input
+          : (input instanceof URL ? input.href : input.url);
+        var method = options && options.method
+          ? options.method
+          : (input && input.method ? input.method : 'GET');
 
-      return requestIntercept(urlString, method)
-        .then(function(resp) {
-          if (!interceptEnabled) {
-            return originalFetch(input, options);
-          }
+        return requestIntercept(urlString, method)
+          .then(function(resp) {
+            if (!interceptEnabled) {
+              return baseFetch(input, options);
+            }
 
-          if (resp && resp.data !== undefined && resp.data !== null) {
-            return toFetchResponse(resp);
-          }
+            if (resp && resp.data !== undefined && resp.data !== null) {
+              return toFetchResponse(resp);
+            }
 
-          return originalFetch(input, options);
-        })
-        .catch(function() {
-          return originalFetch(input, options);
-        });
-    };
+            return baseFetch(input, options);
+          })
+          .catch(function() {
+            return baseFetch(input, options);
+          });
+      };
+      window.fetch = patchedFetch;
+    }
 
-    XMLHttpRequest.prototype.open = patchedXHROpen;
-    XMLHttpRequest.prototype.send = patchedXHRSend;
-    window.fetch = patchedFetch;
     hooksInstalled = true;
   }
 
@@ -258,10 +268,26 @@
     interceptEnabled = false;
   }
 
+  try {
+    Object.defineProperty(window, '__AJAX_INTERCEPTOR_PRO_SET_ENABLED__', {
+      value: setEnabled,
+      configurable: true,
+      enumerable: false,
+      writable: false
+    });
+  } catch (error) {
+    window.__AJAX_INTERCEPTOR_PRO_SET_ENABLED__ = setEnabled;
+  }
+
   window.addEventListener('message', function(event) {
     if (event.source !== window) return;
     if (!event.data || event.data.type !== 'AJAX_INTERCEPTOR_SET_ENABLED') return;
     setEnabled(event.data.enabled === true);
+  });
+
+  document.documentElement.addEventListener('AJAX_INTERCEPTOR_SET_ENABLED', function(event) {
+    var detail = event && event.detail;
+    setEnabled(detail && detail.enabled === true);
   });
 
   installHooks();

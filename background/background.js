@@ -315,6 +315,40 @@ async function notifyTabInterceptActive(tabId) {
   } catch (error) {
     // 页面尚未注入 content script 时可忽略。
   }
+
+  // MAIN 世界直写，覆盖所有 frame，避免仅依赖 postMessage / 顶层 sendMessage。
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tabId, allFrames: true },
+      world: 'MAIN',
+      func: function(enabled) {
+        var nextEnabled = enabled === true;
+        try {
+          if (typeof window.__AJAX_INTERCEPTOR_PRO_SET_ENABLED__ === 'function') {
+            window.__AJAX_INTERCEPTOR_PRO_SET_ENABLED__(nextEnabled);
+            return;
+          }
+        } catch (error) {
+          // fall through
+        }
+        try {
+          document.documentElement.dispatchEvent(new CustomEvent('AJAX_INTERCEPTOR_SET_ENABLED', {
+            detail: { enabled: nextEnabled },
+            bubbles: true
+          }));
+        } catch (error) {
+          // fall through
+        }
+        window.postMessage({
+          type: 'AJAX_INTERCEPTOR_SET_ENABLED',
+          enabled: nextEnabled
+        }, '*');
+      },
+      args: [active === true]
+    });
+  } catch (error) {
+    // chrome:// 等受限页面可忽略。
+  }
 }
 
 async function broadcastInterceptActive() {
@@ -385,6 +419,9 @@ async function hydrateStateCache(force) {
         hitCounts: normalizedHitCounts.hitCounts,
         settings: nextSettings
       };
+
+      // hydrate 与 storage.onChanged 可能并发；收尾再读一次开关，避免旧快照盖掉最新值。
+      await refreshInterceptDecisionInputs();
 
       if (normalizedGroups.changed || normalizedHitCounts.changed) {
         var patch = {};
